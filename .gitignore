@@ -16,3 +16,5 @@ my-app/
 # Leftover from Bromium virtualization environment
 plugins/~BROMIUM/
 plugins/**/~BROMIUM/
+
+.claude/
