@@ -56,8 +56,8 @@ $(document).on("click", "#conferma_aggiunta_ordine", function(e){
 
 function aggiunta_ordine($this){
     let insert_error = 0;
-    let obj = new Object();
-    
+    let obj = {};
+
     obj.data_di_consegna = $('#data_di_consegna').val();
     obj.quantita = $('#quantita').val();
     obj.cliente = $('#cliente').val();
@@ -88,7 +88,7 @@ function aggiunta_ordine($this){
 
     if(numero_ordini_inseriti_contemportaneamente > 1 && insert_error == 0){
         for(let i = 2; i <= numero_ordini_inseriti_contemportaneamente; i++){
-            obj = new Object();
+            obj = {};
     
             obj.data_di_consegna = $('#data_di_consegna').val();
             obj.quantita = $('#quantita_' + i).val();
@@ -101,7 +101,7 @@ function aggiunta_ordine($this){
             obj.posizione = $('#posizione').val();
             obj.quantita_consegnata = 0;
             
-            if(obj.data_di_consegna != "" && obj.quantita !="" && obj.cliente && obj.cliente != null !="" && obj.prodotto !="" && obj.prodotto != null){
+            if(obj.data_di_consegna != "" && obj.quantita != "" && obj.cliente != null && obj.cliente != "" && obj.prodotto != "" && obj.prodotto != null){
             }else{
                 insert_error = 1;
 
@@ -118,7 +118,7 @@ function aggiunta_ordine($this){
 
         if(insert_error == 0){
             //Se non ci sono errori devo inserire tutti gli ordini
-            obj = new Object();
+            obj = {};
 
             obj.data_di_consegna = $('#data_di_consegna').val();
             obj.quantita = $('#quantita').val();
@@ -134,7 +134,7 @@ function aggiunta_ordine($this){
             inserisciOrdine(obj);
 
             for(let i = 2; i <= numero_ordini_inseriti_contemportaneamente; i++){
-                obj = new Object();
+                obj = {};
     
                 obj.data_di_consegna = $('#data_di_consegna').val();
                 obj.quantita = $('#quantita_' + i).val();
@@ -228,7 +228,7 @@ function aggiunta_cliente($this){
         inseribile = cercaCliente(nome, num_telefono);
     
         if(inseribile){
-            let cliente = new Object();
+            let cliente = {};
             
             cliente.nome = nome;
             cliente.email = num_telefono;
@@ -284,7 +284,7 @@ function aggiunta_prodotto($this){
         inseribile = cercaProdotto(descrizione);
     
         if(inseribile){
-            let prodotto = new Object();
+            let prodotto = {};
             
             prodotto.descrizione = descrizione;
             prodotto.prezzo = prezzo;
@@ -360,7 +360,6 @@ function rimuovi_ordine(id_ordine){
 
 function apri_modale_modifica_ordine(id_ordine){
     let ordine = getOrdineDaModificare(id_ordine, selected_year);
-    console.log(ordine);
 
     if(ordine.stato == "0"){
         $('#div_data_di_ritiro_effettiva').addClass('d-none');
@@ -526,7 +525,7 @@ function consegna_articoli($this) {
 
             modificaOrdineFunction(where, set, selected_year);
         }else{
-            let obj = new Object();
+            let obj = {};
             let ordine = getOrdineDaModificare(id_ordine, selected_year);
 
             obj.data_di_consegna = ordine.data_di_consegna;
@@ -584,7 +583,7 @@ $(document).on("click", ".annulla_consegna", function(e){
 function function_annulla_consegna($this){
     var id_ordine = $this.attr('data-id');
 
-    let obj = new Object();
+    let obj = {};
     let ordine = getOrdineAnnullaConsegna(id_ordine, selected_year_close);
 
     obj.data_di_consegna = ordine.data_di_consegna;
