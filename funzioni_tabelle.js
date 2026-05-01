@@ -36,6 +36,9 @@ function addExtraFilter() {
 }
 
 function create_data_table_ordini(stato) {
+    if ($('#table').length && $.fn.dataTable.isDataTable('#table')) {
+        $('#table').DataTable().destroy();
+    }
     $('#table_div').empty();
 
     $('#table_div').html(`
@@ -61,7 +64,7 @@ function create_data_table_ordini(stato) {
         </table>
     `);
 
-    $('#table_tbody').html(popolaTabellaOrdini(stato, selected_year));
+    $('#table_tbody').html(popolaTabellaOrdini(stato));
 
     table_ordini = $('#table').dataTable({
         columnDefs: [
@@ -83,6 +86,9 @@ function create_data_table_ordini(stato) {
 }
 
 function create_data_table_ordini_chiusi(stato) {
+    if ($('#table').length && $.fn.dataTable.isDataTable('#table')) {
+        $('#table').DataTable().destroy();
+    }
     $('#table_div').empty();
 
     $('#table_div').html(`
@@ -108,7 +114,7 @@ function create_data_table_ordini_chiusi(stato) {
         </table>
     `);
 
-    $('#table_tbody').html(popolaTabellaOrdini(stato, selected_year_close));
+    $('#table_tbody').html(popolaTabellaOrdini(stato));
 
     table_ordini_chiusi = $('#table').dataTable({
         columnDefs: [
@@ -130,6 +136,9 @@ function create_data_table_ordini_chiusi(stato) {
 }
 
 function create_data_table_clienti() {
+    if ($('#table').length && $.fn.dataTable.isDataTable('#table')) {
+        $('#table').DataTable().destroy();
+    }
     $('#table_div').empty();
 
     $('#table_div').html(`
@@ -160,6 +169,9 @@ function create_data_table_clienti() {
 }
 
 function create_data_table_prezzi() {
+    if ($('#table').length && $.fn.dataTable.isDataTable('#table')) {
+        $('#table').DataTable().destroy();
+    }
     $('#table_div').empty();
 
     $('#table_div').html(`

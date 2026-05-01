@@ -76,12 +76,13 @@
             // Variabili generali
             var numero_ordini_inseriti_contemportaneamente = 0;
             var sidebar_attiva = "sidebar_dashboard";
-            var html_attivo = "ordini";
             var search;
             var search2;
             var actual_year = new Date().getFullYear();
             var selected_year = actual_year;
             var selected_year_close = actual_year;
+            var clienti_salvati = [];
+            var prodotti_salvati = [];
             
             // Carico l'html delle modali
             $( "#modali" ).load( "modali.html" );

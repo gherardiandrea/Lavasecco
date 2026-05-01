@@ -20,6 +20,7 @@ function popolaSelectProdotti(c = 0) {
     try {
         let prodotti = window.myAPI.getElencoProdotti();
         if (c === 0) {
+            prodotti_salvati = prodotti;
             $('.select_prodotti').val(null).empty();
             $('.select_prodotti_modifica_ordine').val(null).empty();
             if (Array.isArray(prodotti)) {
@@ -46,8 +47,9 @@ function popolaSelectProdotti(c = 0) {
 }
 
 function buildOrdineRow(ordine, showEditButton, firstCellClass) {
-    const nome_cliente = window.myAPI.getClienteById(ordine.cliente);
-    const prodotto = window.myAPI.getProdottoById(ordine.prodotto) || {};
+    const clienteObj = (clienti_salvati || []).find(c => c.id == ordine.cliente);
+    const nome_cliente = clienteObj ? clienteObj.nome : '';
+    const prodotto = (prodotti_salvati || []).find(p => p.id == ordine.prodotto) || {};
 
     const tValue = prodotto.prezzo ? parseFloat(prodotto.prezzo.replace(/,/g, '.')) : '';
     const prezzo = isNumber(tValue) ? parseInt(prodotto.prezzo) * parseInt(ordine.quantita) : '';
@@ -80,7 +82,7 @@ function buildOrdineRow(ordine, showEditButton, firstCellClass) {
     html += `<td data-sort='${getDateSortKey(ordine.data_di_ritiro_prevista)}'>${ordine.data_di_ritiro_prevista || ''}</td>`;
     html += `<td data-sort='${getDateSortKey(ordine.data_di_consegna_effettiva)}'>${ordine.data_di_consegna_effettiva || ''}</td>`;
 
-    if (ordine.posizione && (ordine.stato == 0 || ordine.stato == 2)) {
+    if (ordine.posizione && (ordine.stato == "0" || ordine.stato == "2")) {
         const pos = ordine.posizione;
         if (descrizione.length > 50 && pos.length > 20) {
             html += `<td data-toggle="tooltip" title="${pos}" style="cursor: pointer;">${pos.substring(0, 20)}...</td>`;
@@ -136,18 +138,12 @@ function inserisciCliente(cliente) {
 }
 
 function popolaTabellaClienti() {
-    let clienti = window.myAPI.getElencoClienti();
-    let html = '';
-
-    $.each(clienti, function(index, cliente) {
-        html += `<tr>`;
-        html += `<td class='nome_cliente' data-id="${cliente.id}" data-nome="${cliente.nome}">${cliente.nome}</td>`;
-        html += `<td class="edit_numero_di_telefono" id="${cliente.id}" data-id="${cliente.id}" data-numero="${cliente.email}">${cliente.email}</td>`;
-        html += `<td style="width: 6% !important;"><button class='btn btn-sm btn-secondary modifica_cliente' data-num_telefono="${cliente.email}" data-nome="${cliente.nome}" data-id='${cliente.id}'>Modifica</button></td>`;
-        html += `</tr>`;
-    });
-
-    return html;
+    const clienti = window.myAPI.getElencoClienti();
+    return clienti.map(cliente => `<tr>
+        <td class='nome_cliente' data-id="${cliente.id}" data-nome="${cliente.nome}">${cliente.nome}</td>
+        <td class="edit_numero_di_telefono" id="${cliente.id}" data-id="${cliente.id}" data-numero="${cliente.email}">${cliente.email}</td>
+        <td style="width: 6% !important;"><button class='btn btn-sm btn-secondary modifica_cliente' data-num_telefono="${cliente.email}" data-nome="${cliente.nome}" data-id='${cliente.id}'>Modifica</button></td>
+    </tr>`).join('');
 }
 
 function isNumber(n) {
@@ -166,20 +162,15 @@ function getDateSortKey(dateValue) {
 }
 
 function popolaTabellaPrezzi() {
-    let prodotti = window.myAPI.getElencoProdotti();
-    let html = '';
-
-    $.each(prodotti, function(index, prodotto) {
+    const prodotti = window.myAPI.getElencoProdotti();
+    return prodotti.map(prodotto => {
         const tValue = prodotto.prezzo ? parseFloat(prodotto.prezzo.replace(/,/g, '.')) : '';
         const simbolo_euro = isNumber(tValue) ? '€' : '';
-
-        html += `<tr>`;
-        html += `<td class='nome_prodotto' data-id="${prodotto.id}" data-nome="${prodotto.descrizione}">${prodotto.descrizione}</td>`;
-        html += `<td class="edit_prezzo_prodotto" id="${prodotto.id}" data-id="${prodotto.id}" data-prezzo="${prodotto.prezzo}">${prodotto.prezzo} ${simbolo_euro}</td>`;
-        html += `</tr>`;
-    });
-
-    return html;
+        return `<tr>
+            <td class='nome_prodotto' data-id="${prodotto.id}" data-nome="${prodotto.descrizione}">${prodotto.descrizione}</td>
+            <td class="edit_prezzo_prodotto" id="${prodotto.id}" data-id="${prodotto.id}" data-prezzo="${prodotto.prezzo}">${prodotto.prezzo} ${simbolo_euro}</td>
+        </tr>`;
+    }).join('');
 }
 
 function cercaProdotto(descrizione) {
@@ -247,3 +238,163 @@ function cambiaOrdini(anno_da_controllare) {
 function modificaClienteFunction(where, set) {
     window.myAPI.modificaCliente(where, set);
 }
+
+function cambiaPagina(nuova_pagina, url) {
+    $('#table_div').empty();
+    $('.loader').parent().removeClass('d-none');
+
+    $('.sidebar_link').parent().removeClass("active-tab");
+    $('.sidebar_link').removeClass("active");
+
+    $('.' + nuova_pagina).addClass('active');
+    $('.' + nuova_pagina).parent().addClass('active-tab');
+
+    if (url == 'ordini') {
+        sidebar_attiva = 'sidebar_dashboard';
+    } else if (url == 'clienti') {
+        sidebar_attiva = 'sidebar_clienti';
+    } else if (url == 'prezzi') {
+        sidebar_attiva = 'sidebar_prezzi';
+    } else if (url == 'ordini_chiusi') {
+        sidebar_attiva = 'sidebar_ordini_chiusi';
+    } else {
+        sidebar_attiva = nuova_pagina;
+    }
+
+    let html = '';
+
+    setTimeout(function() {
+        switch (url) {
+            case 'ordini':
+                $('.page_title').html('Ordini');
+                html = `<button type="button" onclick="apriModaleNuovoOrdine()" class="btn btn-primary"><i class="fa-solid fa-plus-circle"></i> Ordine</button>`;
+                html += `<select id="seleziona_anno" class="seleziona_anno ml-2 form-select w-auto" style="margin-left: 5px;">`;
+                for (let i = actual_year; i >= 2019; i--) {
+                    html += `<option value="${i}"${i == selected_year ? ' selected' : ''}>${i}</option>`;
+                }
+                html += `</select>`;
+                $('#div_bottone_aggiungi').html(html);
+                create_data_table_ordini(0);
+                break;
+
+            case 'ordini_chiusi':
+                $('.page_title').html('Ordini consegnati');
+                html = `<select id="seleziona_anno_chiuso" class="seleziona_anno ml-2 form-select w-auto">`;
+                for (let i = actual_year; i >= 2019; i--) {
+                    html += `<option value="${i}"${i == selected_year_close ? ' selected' : ''}>${i}</option>`;
+                }
+                html += `</select>`;
+                $('#div_bottone_aggiungi').html(html);
+                create_data_table_ordini_chiusi(1);
+                break;
+
+            case 'prezzi':
+                create_data_table_prezzi();
+                $('.page_title').html('Prezzi');
+                $('#div_bottone_aggiungi').html(`<button type="button" onclick="apriModaleNuovoProdotto()" class="btn btn-primary"><i class="fa-solid fa-plus-circle"></i> Articolo</button>`);
+                break;
+
+            case 'clienti':
+                create_data_table_clienti();
+                $('.page_title').html('Clienti');
+                $('#div_bottone_aggiungi').html(`<button type="button" onclick="apriModaleNuovoCliente()" class="btn btn-primary"><i class="fa-solid fa-plus-circle"></i> Cliente</button>`);
+                break;
+        }
+        $('.loader').parent().addClass('d-none');
+    }, 100);
+}
+
+function inizializza_elementi() {
+    $('.js-datepicker').datepicker({
+        format: "dd-mm-yyyy",
+        weekStart: 1,
+        language: 'it',
+        calendarWeeks: true,
+        autoclose: true,
+        todayHighlight: true
+    });
+
+    $('.select_clienti').select2({
+        dropdownParent: $('#aggiungi_ordine_modal'),
+        theme: "bootstrap",
+        placeholder: '',
+        minimumResultsForSearch: 5,
+        matcher: matchStart,
+        allowClear: true
+    });
+
+    $('.select_prodotti').select2({
+        dropdownParent: $('#aggiungi_ordine_modal'),
+        theme: "bootstrap",
+        placeholder: '',
+        minimumResultsForSearch: 5,
+        matcher: matchStart,
+        allowClear: true
+    });
+
+    $('.select_clienti_modifica_ordine').select2({
+        dropdownParent: $('#modifica_ordine_modal'),
+        theme: "bootstrap",
+        placeholder: '',
+        minimumResultsForSearch: 5,
+        matcher: matchStart,
+        allowClear: true
+    });
+
+    $('.select_prodotti_modifica_ordine').select2({
+        dropdownParent: $('#modifica_ordine_modal'),
+        theme: "bootstrap",
+        placeholder: '',
+        minimumResultsForSearch: 5,
+        matcher: matchStart,
+        allowClear: true
+    });
+}
+
+function matchStart(params, data) {
+    data.parentText = data.parentText || "";
+    if ($.trim(params.term) === '') {
+        return data;
+    }
+    if (data.children && data.children.length > 0) {
+        var match = $.extend(true, {}, data);
+        for (var c = data.children.length - 1; c >= 0; c--) {
+            var child = data.children[c];
+            child.parentText += data.parentText + " " + data.text;
+            var matches = matchStart(params, child);
+            if (matches == null) {
+                match.children.splice(c, 1);
+            }
+        }
+        if (match.children.length > 0) {
+            return match;
+        }
+        return matchStart(params, match);
+    }
+    var original = (data.parentText + ' ' + data.text).toUpperCase();
+    var term = params.term.toUpperCase();
+    if (original.indexOf(term) > -1) {
+        return data;
+    }
+    return null;
+}
+
+$(document).on('change', '#seleziona_anno', function() {
+    $('.loader').parent().removeClass('d-none');
+    $('#table_div').empty();
+    selected_year = $(this).val();
+    setTimeout(function() {
+        create_data_table_ordini(0);
+        $('.loader').parent().addClass('d-none');
+    }, 100);
+});
+
+$(document).on('change', '#seleziona_anno_chiuso', function() {
+    $('.loader').parent().removeClass('d-none');
+    $('#table_div').empty();
+    selected_year_close = $(this).val();
+    setTimeout(function() {
+        create_data_table_ordini_chiusi(1);
+        $('.loader').parent().addClass('d-none');
+    }, 100);
+});
