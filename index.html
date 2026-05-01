@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self';" />
+        <title>Lavastiro</title>
+        
+        <link rel="stylesheet" href="./plugins/bootstrap-5.0.2-dist/css/bootstrap.min.css" />
+        <link rel="stylesheet" href="./node_modules/datatables.net-bs4/css/dataTables.bootstrap4.min.css" />
+    
+        <link href="./node_modules/@fortawesome/fontawesome-free/css/all.min.css" rel="stylesheet">
+
+        <link href="./node_modules/bootstrap-datepicker/dist/css/bootstrap-datepicker3.min.css" rel="stylesheet">
+
+        <link href="./node_modules/select2-bootstrap-theme/dist/select2-bootstrap.min.css" rel="stylesheet">
+        <link href="./node_modules/select2/dist/css/select2.min.css" rel="stylesheet">
+
+        <link href="./styles.css" rel="stylesheet">
+    </head>
+    <body>
+        <!-- Navbar Responsive Bootstrap -->
+        <nav class="navbar navbar-expand-lg app-navbar mb-4">
+            <div class="container-fluid">
+                <a class="navbar-brand app-brand" href="#">Lavasecco</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav me-auto mb-2 mb-lg-0 nav-pills-gap">
+                        <li class="nav-item"><a class="nav-link sidebar_link ordini active" href="#" onclick="cambiaPagina('ordini','ordini')">Ordini</a></li>
+                        <li class="nav-item"><a class="nav-link sidebar_link clienti" href="#" onclick="cambiaPagina('clienti','clienti')">Clienti</a></li>
+                        <li class="nav-item"><a class="nav-link sidebar_link prodotti" href="#" onclick="cambiaPagina('prodotti','prezzi')">Prodotti</a></li>
+                        <li class="nav-item"><a class="nav-link sidebar_link ordini_chiusi" href="#" onclick="cambiaPagina('ordini_chiusi','ordini_chiusi')">Consegnati</a></li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container">
+            <div class="row">
+                <div class="col-12">
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-body">
+                            <h3 class="text-center page_title">Ordini</h3>
+                            <div id="div_bottone_aggiungi" class="d-flex mb-3"></div>
+                            <div class="d-flex justify-content-center mb-3">
+                                <div class="loader" id="main_loader"></div>
+                            </div>
+                            <div class='mt-4' id="table_div"></div>
+                            <div id="alert_feedback" class="alert alert-success d-none mt-3" role="alert"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Modali -->
+        <span id="modali"></span>
+        <!-- Fine Modali -->
+        
+        <!--Js include-->
+        <!-- Define JQuery -->
+        <script src="./plugins/jquery-3.6.0.min.js"></script>
+
+        <script src="./node_modules/bootstrap/dist/js/bootstrap.min.js"></script>
+
+        <!-- You can also require other files to run in this process -->
+        <script src="./renderer.js"></script>
+
+        <script>
+            // Variabili generali
+            var numero_ordini_inseriti_contemportaneamente = 0;
+            var sidebar_attiva = "sidebar_dashboard";
+            var html_attivo = "ordini";
+            var search;
+            var search2;
+            var actual_year = new Date().getFullYear();
+            var selected_year = actual_year;
+            var selected_year_close = actual_year;
+            
+            // Carico l'html delle modali
+            $( "#modali" ).load( "modali.html" );
+        </script>
+
+        <script src="./node_modules/datatables.net/js/jquery.dataTables.min.js"></script>
+        <script src="./node_modules/datatables.net-bs4/js/dataTables.bootstrap4.min.js"></script>
+
+        <script src="./node_modules/bootstrap-datepicker/dist/js/bootstrap-datepicker.min.js"></script>
+        <script src="./node_modules/bootstrap-datepicker/dist/locales/bootstrap-datepicker.it.min.js"></script>
+
+        <script src="./node_modules/select2/dist/js/select2.full.min.js"></script>
+
+        <!-- Carici i file delle funzioni -->
+        <script src="./funzioni_tabelle.js"></script>
+        <script src="./function.js"></script>
+        <script src="./function_modals.js"></script>
+
+        <script>
+            $(document).ready(function() {
+                let html = `<button type="button" onclick="apriModaleNuovoOrdine()" class="btn btn-primary"><i class="fa-solid fa-plus-circle"></i> Ordine</button>`;
+                html += `<select id="seleziona_anno" class="seleziona_anno ml-2 form-select w-auto" style="margin-left: 5px;">`;
+                for (let i = actual_year; i >= 2019; i--) {
+                    if(i == selected_year){
+                        html += `<option value="`+i+`" selected>`+i+`</option>`;
+                    }else{
+                        html += `<option value="`+i+`">`+i+`</option>`;
+                    }
+                }
+                html += ` </select>`;
+                $('#div_bottone_aggiungi').html(html);
+
+                // Inizializzo gli elementi della pagina(DatePicker, etc...)
+                inizializza_elementi();
+
+                // Creo la tabella degli ordini tanto è la prima che si visualizzerà all'avvio dell'app
+                create_data_table_ordini(0);
+
+                // Funzione che popola le varie select dei clienti
+                popolaSelectClienti();
+
+                // Funzione che popola le varie select dei prodotti
+                popolaSelectProdotti();
+
+                $('.loader').parent().addClass('d-none');
+
+                $('#aggiungi_ordine_modal').modal({
+                    backdrop: 'static',
+                    keyboard: false  // to prevent closing with Esc button (if you want this too)
+                })
+            });
+
+            //Funzione per il 2° campo di ricerca basato esclusivamente sulla data di ritiro prevista
+            $(document).on("keyup", "#search_column" ,function(e){
+                table_ordini.api().columns( 7 )
+                    .search( this.value )
+                    .draw();
+            });
+        </script>
+    </body>
+</html>

@@ -1,0 +1,254 @@
+<!-- Modale inserimento nuovo ordine -->
+<div class="modal fade" id="aggiungi_ordine_modal" role="dialog" aria-labelledby="exampleModalLabel">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="exampleModalLabel">Aggiungi ordine</h4>
+                <button type="button" class="btn btn-secondary chiudi_aggiunta_ordine"><b>X</b></button>
+            </div>
+            <div class="modal-body" id="aggiungi_ordine_modal_body">
+                <div class="row">
+                    <div class="col-sm-12 col-md-6">
+                        <div class="form-group">
+                            <label class="form-label">Data consegna</label>
+                            <div class="input-group date">
+                                <input type="text" id="data_di_consegna" class="form-control js-datepicker" autocomplete="off" >
+                                <span class="input-group-append"><span class="input-group-text h-100"><i class="far fa-calendar-alt"></i></span></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-12 col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">Data di ritiro prevista</label>
+                                <div class="input-group date">
+                                    <input type="text" id="data_di_ritiro_prevista" class="form-control js-datepicker" autocomplete="off" >
+                                    <span class="input-group-append"><span class="input-group-text h-100"><i class="far fa-calendar-alt"></i></span></span>
+                                </div>
+                            </div>
+                        </div>
+                    <div class="col-sm-12 col-md-6 mt-2">
+                        <label class="form-label">Cliente</label>
+                        <select class="select-select2 select_clienti" id="cliente">
+                            <option value=""></option>
+                        </select>
+                    </div>
+                    <div class="col-sm-12 col-md-6 mt-2">
+                        <label class="form-label">Posizione</label>
+                        <input type="text" class="form-control" id="posizione">
+                    </div>
+                    <div class="col-sm-12 col-md-6 mt-2">
+                        <label class="form-label">Prodotto</label>
+                        <select class="select-select2 select_prodotti" id="prodotto">
+                            <option value=""></option>
+                        </select>
+                    </div>
+                    <div class="col-sm-11 col-md-5 mt-2">
+                        <label class="form-label">Quantità</label>
+                        <input type="number" min="0" step="1" class="form-control" id="quantita">
+                    </div>
+                    <div class="col-sm-1 col-md-1 mt-auto">
+                        <button id="aggiungi_prodotto_a_ordine" type="button" class="btn btn-primary" onclick="aggiungi_nuova_riga_ordine()"><i class="far fa-plus-square"></i></button>
+                    </div>
+                    <div class="col-sm-12 col-md-12 mt-2">
+                        <label class="form-label">Descrizione</label>
+                        <textarea class="form-control" rows="4" id="descrizione"></textarea>
+                    </div>
+                </div>
+                <div id="add_products" class="row mt-2">
+
+                </div>
+            </div>
+            <div class="modal-footer">
+                <div class="loader_modal d-none"></div>
+                <button type="button" class="btn btn-secondary chiudi_aggiunta_ordine">Chiudi</button>
+                <button type="button" class="btn btn-success" id="conferma_aggiunta_ordine">Conferma</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modale inserimento nuovo cliente -->
+<div class="modal fade" id="nuovo_cliente_modal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="exampleModalLabel">Nuovo cliente</h4>
+            </div>
+            <div class="modal-body" id="nuovo_cliente_body">
+                <div class="row">
+                    <div class="col-sm-12 col-md-6">
+                        <label class="form-label">Nome e Cognome</label>
+                        <input type="text" id="nome_nuovo_cliente" class="form-control" >
+                    </div>
+                    <div class="col-sm-12 col-md-6">
+                        <label class="form-label">Numero di telefono</label>
+                        <input type="text" id="num_telefono_nuovo_cliente" class="form-control" >
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-success" id="conferma_aggiunta_cliente" data-dismiss="modal">Conferma</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modale modifica cliente -->
+<div class="modal fade" id="modifica_cliente_modal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="exampleModalLabel">Nuovo cliente</h4>
+            </div>
+            <div class="modal-body" id="modifica_cliente_body">
+                <div class="row">
+                    <div class="col-sm-12 col-md-6">
+                        <label class="form-label">Nome e Cognome</label>
+                        <input type="text" id="nome_modifica_cliente" class="form-control" >
+                    </div>
+                    <div class="col-sm-12 col-md-6">
+                        <label class="form-label">Numero di telefono</label>
+                        <input type="text" id="num_telefono_modifica_cliente" class="form-control" >
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-success" id="conferma_modifica_cliente" data-dismiss="modal">Conferma</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modale inserimento nuovo prodotto -->
+<div class="modal fade" id="nuovo_prodotto_modal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="exampleModalLabel">Nuovo articolo</h4>
+            </div>
+            <div class="modal-body" id="nuovo_cliente_body">
+                <div class="row">
+                    <div class="col-sm-12 col-md-6">
+                        <label class="form-label">Descrizione</label>
+                        <input type="text" id="descrizione_nuovo_articolo" class="form-control" >
+                    </div>
+                    <div class="col-sm-12 col-md-6">
+                        <label class="form-label">Prezzo</label>
+                        <input type="text" id="prezzo_nuovo_articolo" class="form-control" >
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-success" id="conferma_aggiunta_prodotto" data-dismiss="modal">Conferma</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modale di conferma eliminazione ordine -->
+<div class="modal fade" id="sei_sicuro_modal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel1">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exampleModalLabel">Sei sicuro di voler eliminare questo ordine?</h5>
+            </div>
+            <div class="modal-footer">
+                <div class="loader_modal_elimina_ordine d-none"></div>
+                <button id="conferma_rimuovi_ordine" type="button" data-action="" class="btn btn-danger" >Conferma</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modale di modifica ordine -->
+<div class="modal fade" id="modifica_ordine_modal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel1">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exampleModalLabel">Modifica ordine</h5>
+            </div>
+            <div class="modal-body" id="modifica_ordine_body">
+                <div class="row">
+                    <div class="col-sm-12 col-md-6">
+                        <div class="form-group">
+                            <label class="form-label">Data consegna</label>
+                            <div class="input-group date">
+                                <input type="text" id="modifica_data_di_consegna" class="form-control js-datepicker" autocomplete="off" >
+                                <span class="input-group-append"><span class="input-group-text"><i class="far fa-calendar-alt"></i></span></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="div_data_di_ritiro_prevista" class="col-sm-12 col-md-6">
+                        <div class="form-group">
+                            <label class="form-label">Data di ritiro prevista</label>
+                            <div class="input-group date">
+                                <input type="text" id="modifica_data_di_ritiro_prevista" class="form-control js-datepicker" autocomplete="off" >
+                                <span class="input-group-append"><span class="input-group-text"><i class="far fa-calendar-alt"></i></span></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="div_data_di_ritiro_effettiva" class="col-sm-12 col-md-6">
+                        <div class="form-group">
+                            <label class="form-label">Data di ritiro effettiva</label>
+                            <div class="input-group date">
+                                <input type="text" id="modifica_data_di_ritiro_effettiva" class="form-control js-datepicker" autocomplete="off" >
+                                <span class="input-group-append"><span class="input-group-text"><i class="far fa-calendar-alt"></i></span></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-12 col-md-6">
+                        <label class="form-label">Cliente</label>
+                        <select class="select_clienti_modifica_ordine" id="modifica_cliente">
+                            <option value=""></option>
+                        </select>
+                    </div>
+                    <div class="col-sm-12 col-md-6">
+                            <label class="form-label">Quantità</label>
+                            <input type="number" min="0" step="1" class="form-control" id="modifica_quantita">
+                        </div>
+                    <div class="col-sm-12 col-md-12">
+                        <label class="form-label">Descrizione</label>
+                        <textarea class="form-control" rows="5" id="modifica_descrizione"></textarea>
+                    </div>
+                    <div class="col-sm-12 col-md-6">
+                        <label class="form-label">Prodotto</label>
+                        <select class="select_prodotti_modifica_ordine" id="modifica_prodotto">
+                            <option value=""></option>
+                        </select>
+                    </div>
+                    <div class="col-sm-12 col-md-6">
+                        <label class="form-label">Posizione</label>
+                        <input type="text" class="form-control" id="modifica_posizione">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <div class="loader_modal_modifica_ordine d-none"></div>
+                <button id="conferma_modifica_ordine" type="button" class="btn btn-success" onclick="confermaModificaOrdine()">Conferma</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modale di consegna ordine -->
+<div class="modal fade" id="quantita_consegnata_modal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel1">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exampleModalLabel">Quantita consegnata</h5>
+            </div>
+            <div class="modal-body" id="modifica_ordine_body">
+                <div class="row">
+                    <div class="col-sm-12 col-md-12">
+                        <label class="form-label">Quantita</label>
+                        <input type="number" step="1" id="modifica_quantita_consegnata" class="form-control">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <div class="loader_modal_conferma_quantita_confermata d-none"></div>
+                <button id="conferma_quantita_consegnata" type="button" class="btn btn-success" >Conferma</button>
+            </div>
+        </div>
+    </div>
+</div>

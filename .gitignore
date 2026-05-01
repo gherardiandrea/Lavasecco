@@ -1,0 +1,18 @@
+node_modules
+dist/
+out/
+
+# SQLite runtime files
+str/extraResources/*.sqlite3
+str/extraResources/*.sqlite3-shm
+str/extraResources/*.sqlite3-wal
+
+# Local backups
+str/extraResources/backups/
+
+# Abandoned template subfolder
+my-app/
+
+# Leftover from Bromium virtualization environment
+plugins/~BROMIUM/
+plugins/**/~BROMIUM/
