@@ -566,3 +566,101 @@ body {
     .table-clienti,
     .table-prezzi { min-width: 980px !important; }
 }
+
+/* ── Row status colors ────────────────────────────── */
+
+#table tbody tr.row-parziale {
+    background-color: rgba(201,122,10,0.04) !important;
+}
+
+#table tbody tr.row-parziale td:first-child {
+    box-shadow: inset 3px 0 0 var(--warning-1);
+}
+
+#table tbody tr.row-parziale:hover {
+    background-color: rgba(201,122,10,0.09) !important;
+}
+
+#table tbody tr.row-chiuso {
+    background-color: rgba(23,134,74,0.04) !important;
+}
+
+#table tbody tr.row-chiuso td:first-child {
+    box-shadow: inset 3px 0 0 var(--success-1);
+}
+
+#table tbody tr.row-chiuso:hover {
+    background-color: rgba(23,134,74,0.09) !important;
+}
+
+/* ── Select2 brand theming ────────────────────────── */
+
+.select2-container--bootstrap .select2-selection {
+    border-color: var(--line-1) !important;
+    border-radius: var(--radius-sm) !important;
+    font-family: var(--font-body);
+    font-size: 0.93rem;
+    background-color: #fafcff !important;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.select2-container--bootstrap.select2-container--focus .select2-selection,
+.select2-container--bootstrap.select2-container--open .select2-selection {
+    border-color: var(--brand-1) !important;
+    box-shadow: 0 0 0 3px rgba(10,143,155,0.16) !important;
+    outline: none;
+}
+
+.select2-dropdown {
+    border-color: var(--line-1) !important;
+    border-radius: var(--radius-sm) !important;
+    box-shadow: 0 8px 24px rgba(17,24,39,0.14);
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+}
+
+.select2-results__option--highlighted[aria-selected] {
+    background-color: var(--brand-2) !important;
+    color: #fff !important;
+}
+
+.select2-results__option[aria-selected=true] {
+    background-color: rgba(10,143,155,0.1) !important;
+    color: var(--ink-1) !important;
+}
+
+.select2-search--dropdown .select2-search__field {
+    border-color: var(--line-1);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+}
+
+.select2-search--dropdown .select2-search__field:focus {
+    border-color: var(--brand-1);
+    box-shadow: 0 0 0 2px rgba(10,143,155,0.16);
+    outline: none;
+}
+
+/* ── DataTables empty state ───────────────────────── */
+
+td.dataTables_empty {
+    text-align: center !important;
+    padding: 3.5rem 2rem !important;
+    color: var(--ink-3) !important;
+    font-size: 0.9rem;
+    font-style: italic;
+    border: none !important;
+    background: linear-gradient(to bottom, transparent, rgba(238,242,247,0.5)) !important;
+}
+
+td.dataTables_empty::before {
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    content: '\f15c';
+    display: block;
+    font-size: 2rem;
+    color: var(--line-1);
+    margin-bottom: 0.75rem;
+    font-style: normal;
+}

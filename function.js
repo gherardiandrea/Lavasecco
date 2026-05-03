@@ -61,8 +61,9 @@ function buildOrdineRow(ordine, showEditButton, firstCellClass) {
         : ordine.quantita;
 
     const tdClass = firstCellClass ? ` class="${firstCellClass}"` : '';
+    const statoClass = ordine.stato == "2" ? 'row-parziale' : ordine.stato == "1" ? 'row-chiuso' : '';
 
-    let html = `<tr id="tr_${ordine.id}"><td${tdClass}>`;
+    let html = `<tr id="tr_${ordine.id}"${statoClass ? ` class="${statoClass}"` : ''}><td${tdClass}>`;
     html += `<button class="btn btn-sm btn-danger rimuovi_ordine mt-1" id="rimuovi_ordine" onclick="apri_modale_elimina_ordine('${ordine.id}')" data-id="${ordine.id}" style='min-width: 34px;'><i class="fas fa-trash"></i></button>`;
     if (showEditButton) {
         html += `<button class="btn btn-sm btn-primary modifica_ordine mt-1" onclick="apri_modale_modifica_ordine('${ordine.id}')" id="modifica_ordine" data-id="${ordine.id}" style='min-width: 34px;'><i class="far fa-edit"></i></button>`;
