@@ -1,5 +1,7 @@
 # Lavasecco
 
+[![Test](https://github.com/gherardiandrea/Lavasecco/actions/workflows/test.yml/badge.svg)](https://github.com/gherardiandrea/Lavasecco/actions/workflows/test.yml)
+
 Applicazione desktop Electron per la gestione ordini, clienti e listino di una lavanderia.
 
 ## Stato attuale
@@ -43,6 +45,20 @@ In caso di errore, screenshot e traccia finiscono in `test-results/`
 
 Le funzioni di `renderer/formato.js` e `renderer/celle.js` non devono usare jQuery né il DOM,
 così restano testabili in Node.
+
+### Integrazione continua
+
+A ogni push su `main` e a ogni pull request GitHub Actions ([.github/workflows/test.yml](.github/workflows/test.yml))
+esegue i test unitari su Windows e Linux e, se passano, i test end-to-end su Windows.
+Se un test end-to-end fallisce, screenshot e tracce sono scaricabili dalla pagina dell'esecuzione
+(artefatto `risultati-e2e`). Si può anche lanciare a mano da **Actions → Test → Run workflow**.
+
+### Nota su npm 12
+
+npm 12 blocca le dipendenze prese da git e gli script di installazione non approvati:
+- `overrides` in `package.json` fa prendere `@electron/node-gyp` (usato da Electron Forge) dal registro npm invece che da git;
+- `allowScripts` approva lo script di `electron-winstaller`, che serve a `npm run make`;
+- Electron scarica il suo binario al primo avvio (oppure subito con `npx install-electron`).
 
 ## Dove sono i dati
 

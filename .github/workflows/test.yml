@@ -1,0 +1,73 @@
+# Test automatici a ogni push e pull request.
+# - Unitari: su Windows e Linux (il livello dati non deve dipendere dal sistema operativo)
+# - End-to-end: su Windows, dove gira l'app; solo se gli unitari sono passati
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Un nuovo push sullo stesso ramo annulla l'esecuzione precedente ancora in corso
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  unitari:
+    name: Unitari (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Installa le dipendenze
+        run: npm ci
+
+      - name: Test unitari
+        run: npm test
+
+  end-to-end:
+    name: End-to-end (Windows)
+    needs: unitari
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Installa le dipendenze
+        run: npm ci
+
+      # Electron scarica il suo binario al primo avvio: lo scarico prima, fuori dai tempi dei test
+      - name: Scarica Electron
+        run: npx install-electron
+
+      - name: Test end-to-end
+        run: npm run test:e2e
+
+      # Screenshot e tracce dei test falliti (npx playwright show-trace <file>.zip per rivederli)
+      - name: Allega i risultati dei test falliti
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risultati-e2e
+          path: test-results/
+          retention-days: 14
