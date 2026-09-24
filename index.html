@@ -2,7 +2,7 @@
 <html>
     <head>
         <meta charset="UTF-8">
-        <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self';" />
+        <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self';" />
         <title>Lavasecco</title>
 
         <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -31,10 +31,10 @@
                 </button>
                 <div class="collapse navbar-collapse" id="navbarNav">
                     <ul class="navbar-nav me-auto mb-2 mb-lg-0 nav-pills-gap">
-                        <li class="nav-item"><a class="nav-link sidebar_link ordini active" href="#" onclick="cambiaPagina('ordini','ordini')">Ordini</a></li>
-                        <li class="nav-item"><a class="nav-link sidebar_link clienti" href="#" onclick="cambiaPagina('clienti','clienti')">Clienti</a></li>
-                        <li class="nav-item"><a class="nav-link sidebar_link prodotti" href="#" onclick="cambiaPagina('prodotti','prezzi')">Prodotti</a></li>
-                        <li class="nav-item"><a class="nav-link sidebar_link ordini_chiusi" href="#" onclick="cambiaPagina('ordini_chiusi','ordini_chiusi')">Consegnati</a></li>
+                        <li class="nav-item"><a class="nav-link sidebar_link ordini active" href="#" data-pagina="ordini" data-url="ordini">Ordini</a></li>
+                        <li class="nav-item"><a class="nav-link sidebar_link clienti" href="#" data-pagina="clienti" data-url="clienti">Clienti</a></li>
+                        <li class="nav-item"><a class="nav-link sidebar_link prodotti" href="#" data-pagina="prodotti" data-url="prezzi">Prodotti</a></li>
+                        <li class="nav-item"><a class="nav-link sidebar_link ordini_chiusi" href="#" data-pagina="ordini_chiusi" data-url="ordini_chiusi">Consegnati</a></li>
                     </ul>
                 </div>
             </div>
@@ -69,22 +69,6 @@
 
         <script src="./node_modules/bootstrap/dist/js/bootstrap.min.js"></script>
 
-        <script>
-            // Variabili generali
-            var numero_ordini_inseriti_contemportaneamente = 0;
-            var sidebar_attiva = "sidebar_dashboard";
-            var search;
-            var search2;
-            var actual_year = new Date().getFullYear();
-            var selected_year = actual_year;
-            var selected_year_close = actual_year;
-            var clienti_salvati = [];
-            var prodotti_salvati = [];
-            
-            // Carico l'html delle modali
-            $( "#modali" ).load( "modali.html" );
-        </script>
-
         <script src="./node_modules/datatables.net/js/jquery.dataTables.min.js"></script>
         <script src="./node_modules/datatables.net-bs4/js/dataTables.bootstrap4.min.js"></script>
 
@@ -98,46 +82,6 @@
         <script src="./function.js"></script>
         <script src="./function_modals.js"></script>
 
-        <script>
-            $(document).ready(function() {
-                let html = `<button type="button" onclick="apriModaleNuovoOrdine()" class="btn btn-primary"><i class="fa-solid fa-plus-circle"></i> Ordine</button>`;
-                html += `<select id="seleziona_anno" class="seleziona_anno ml-2 form-select w-auto" style="margin-left: 5px;">`;
-                for (let i = actual_year; i >= 2019; i--) {
-                    if(i == selected_year){
-                        html += `<option value="`+i+`" selected>`+i+`</option>`;
-                    }else{
-                        html += `<option value="`+i+`">`+i+`</option>`;
-                    }
-                }
-                html += ` </select>`;
-                $('#div_bottone_aggiungi').html(html);
-
-                // Inizializzo gli elementi della pagina(DatePicker, etc...)
-                inizializza_elementi();
-
-                // Creo la tabella degli ordini tanto è la prima che si visualizzerà all'avvio dell'app
-                create_data_table_ordini(0);
-
-                // Funzione che popola le varie select dei clienti
-                popolaSelectClienti();
-
-                // Funzione che popola le varie select dei prodotti
-                popolaSelectProdotti();
-
-                $('.loader').parent().addClass('d-none');
-
-                $('#aggiungi_ordine_modal').modal({
-                    backdrop: 'static',
-                    keyboard: false  // to prevent closing with Esc button (if you want this too)
-                })
-            });
-
-            //Funzione per il 2° campo di ricerca basato esclusivamente sulla data di ritiro prevista
-            $(document).on("keyup", "#search_column" ,function(e){
-                table_ordini.api().columns( 7 )
-                    .search( this.value )
-                    .draw();
-            });
-        </script>
+        <script src="./app.js"></script>
     </body>
 </html>

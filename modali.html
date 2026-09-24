@@ -1,5 +1,5 @@
 <!-- Modale inserimento nuovo ordine -->
-<div class="modal fade" id="aggiungi_ordine_modal" role="dialog" aria-labelledby="modal_title_nuovo_ordine">
+<div class="modal fade" id="aggiungi_ordine_modal" role="dialog" data-bs-backdrop="static" data-bs-keyboard="false" aria-labelledby="modal_title_nuovo_ordine">
     <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header">
@@ -40,10 +40,10 @@
                     </div>
                     <div class="col-sm-11 col-md-5">
                         <label class="form-label">Quantità</label>
-                        <input type="number" min="0" step="1" class="form-control" id="quantita">
+                        <input type="number" min="1" step="1" class="form-control" id="quantita">
                     </div>
                     <div class="col-sm-1 col-md-1 d-flex align-items-end">
-                        <button id="aggiungi_prodotto_a_ordine" type="button" class="btn btn-primary" onclick="aggiungi_nuova_riga_ordine()">
+                        <button id="aggiungi_prodotto_a_ordine" type="button" class="btn btn-primary">
                             <i class="far fa-plus-square"></i>
                         </button>
                     </div>
@@ -206,7 +206,7 @@
                     </div>
                     <div class="col-sm-12 col-md-6">
                         <label class="form-label">Quantità</label>
-                        <input type="number" min="0" step="1" class="form-control" id="modifica_quantita">
+                        <input type="number" min="1" step="1" class="form-control" id="modifica_quantita">
                     </div>
                     <div class="col-sm-12 col-md-6">
                         <label class="form-label">Prodotto</label>
@@ -227,7 +227,7 @@
             <div class="modal-footer">
                 <div class="loader_modal_modifica_ordine d-none"></div>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
-                <button id="conferma_modifica_ordine" type="button" class="btn btn-success" onclick="confermaModificaOrdine()">Conferma</button>
+                <button id="conferma_modifica_ordine" type="button" class="btn btn-success">Conferma</button>
             </div>
         </div>
     </div>
@@ -245,7 +245,7 @@
                 <div class="row g-3">
                     <div class="col-12">
                         <label class="form-label">Quantità</label>
-                        <input type="number" step="1" id="modifica_quantita_consegnata" class="form-control">
+                        <input type="number" min="1" step="1" id="modifica_quantita_consegnata" class="form-control">
                     </div>
                 </div>
             </div>

@@ -26,13 +26,13 @@ function addExtraFilter() {
     $("#table_filter").parent().addClass("col-12");
     $("#table_filter").prepend(`
         <div class="table-extra-filter d-flex align-items-center">
-            <i class="fas fa-search mr-2 text-primary fa-fw"></i>
+            <i class="fas fa-search me-2 text-primary fa-fw"></i>
             <span>Filtra per data di ritiro prevista</span>
-            <input id="search_column" type="text" class="form-control form-control-sm ml-2">
+            <input id="search_column" type="text" class="form-control form-control-sm ms-2">
         </div>
     `);
     $("#table_filter").addClass('d-flex');
-    $("#table_filter").find("label").addClass('mt-0 text-dark font-italic');
+    $("#table_filter").find("label").addClass('mt-0 text-dark fst-italic');
 }
 
 function create_data_table_ordini(stato) {

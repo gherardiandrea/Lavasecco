@@ -46,13 +46,45 @@ function popolaSelectProdotti(c = 0) {
     }
 }
 
+// Escape per inserire testo dell'utente in HTML (contenuto e attributi).
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+// Converte un prezzo salvato come testo ("7,50", "7.50", "7") in numero; NaN se "a vista".
+function parsePrezzo(prezzo) {
+    if (prezzo == null || String(prezzo).trim() === '') {
+        return NaN;
+    }
+    return parseFloat(String(prezzo).replace(/,/g, '.'));
+}
+
+function formatEuro(valore) {
+    return valore.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// Cella con testo troncato e testo completo nel tooltip nativo (title).
+function cellaTroncata(testo, maxLen) {
+    if (testo.length > maxLen) {
+        return `<td title="${escapeHtml(testo)}" style="cursor: pointer;">${escapeHtml(testo.substring(0, maxLen))}...</td>`;
+    }
+    return `<td>${escapeHtml(testo)}</td>`;
+}
+
 function buildOrdineRow(ordine, showEditButton, firstCellClass) {
     const clienteObj = (clienti_salvati || []).find(c => c.id == ordine.cliente);
     const nome_cliente = clienteObj ? clienteObj.nome : '';
     const prodotto = (prodotti_salvati || []).find(p => p.id == ordine.prodotto) || {};
 
-    const tValue = prodotto.prezzo ? parseFloat(prodotto.prezzo.replace(/,/g, '.')) : '';
-    const prezzo = isNumber(tValue) ? parseInt(prodotto.prezzo) * parseInt(ordine.quantita) : '';
+    const prezzoUnitario = parsePrezzo(prodotto.prezzo);
+    const prezzo = Number.isFinite(prezzoUnitario)
+        ? formatEuro(prezzoUnitario * (parseInt(ordine.quantita, 10) || 0))
+        : '';
 
     const descrizione = ordine.descrizione || '';
     const quantita_consegnata = ordine.quantita_consegnata || 0;
@@ -60,50 +92,44 @@ function buildOrdineRow(ordine, showEditButton, firstCellClass) {
         ? ordine.quantita - ordine.quantita_consegnata
         : ordine.quantita;
 
+    const id = escapeHtml(ordine.id);
     const tdClass = firstCellClass ? ` class="${firstCellClass}"` : '';
     const statoClass = ordine.stato == "2" ? 'row-parziale' : ordine.stato == "1" ? 'row-chiuso' : '';
 
-    let html = `<tr id="tr_${ordine.id}"${statoClass ? ` class="${statoClass}"` : ''}><td${tdClass}>`;
-    html += `<button class="btn btn-sm btn-danger rimuovi_ordine mt-1" id="rimuovi_ordine" onclick="apri_modale_elimina_ordine('${ordine.id}')" data-id="${ordine.id}" style='min-width: 34px;'><i class="fas fa-trash"></i></button>`;
+    let html = `<tr id="tr_${id}"${statoClass ? ` class="${statoClass}"` : ''}><td${tdClass}>`;
+    html += `<button class="btn btn-sm btn-danger rimuovi_ordine mt-1" data-id="${id}" style='min-width: 34px;'><i class="fas fa-trash"></i></button>`;
     if (showEditButton) {
-        html += `<button class="btn btn-sm btn-primary modifica_ordine mt-1" onclick="apri_modale_modifica_ordine('${ordine.id}')" id="modifica_ordine" data-id="${ordine.id}" style='min-width: 34px;'><i class="far fa-edit"></i></button>`;
+        html += `<button class="btn btn-sm btn-primary modifica_ordine mt-1" data-id="${id}" style='min-width: 34px;'><i class="far fa-edit"></i></button>`;
     }
     html += `</td>`;
 
-    html += `<td>${nome_cliente}</td>`;
-    html += prodotto.descrizione ? `<td>${prodotto.descrizione}</td>` : `<td></td>`;
-    html += `<td>${ordine.quantita}</td>`;
-    html += `<td>${quantitaDaConsegnare}</td>`;
+    html += `<td>${escapeHtml(nome_cliente)}</td>`;
+    html += `<td>${escapeHtml(prodotto.descrizione)}</td>`;
+    html += `<td>${escapeHtml(ordine.quantita)}</td>`;
+    html += `<td>${escapeHtml(quantitaDaConsegnare)}</td>`;
 
-    html += descrizione.length > 50
-        ? `<td data-toggle="tooltip" title="${descrizione}" style="cursor: pointer;">${descrizione.substring(0, 50)}...</td>`
-        : `<td>${descrizione}</td>`;
+    html += cellaTroncata(descrizione, 50);
 
-    html += `<td data-sort='${getDateSortKey(ordine.data_di_consegna)}'>${ordine.data_di_consegna || ''}</td>`;
-    html += `<td data-sort='${getDateSortKey(ordine.data_di_ritiro_prevista)}'>${ordine.data_di_ritiro_prevista || ''}</td>`;
-    html += `<td data-sort='${getDateSortKey(ordine.data_di_consegna_effettiva)}'>${ordine.data_di_consegna_effettiva || ''}</td>`;
+    html += `<td data-sort="${getDateSortKey(ordine.data_di_consegna)}">${escapeHtml(ordine.data_di_consegna)}</td>`;
+    html += `<td data-sort="${getDateSortKey(ordine.data_di_ritiro_prevista)}">${escapeHtml(ordine.data_di_ritiro_prevista)}</td>`;
+    html += `<td data-sort="${getDateSortKey(ordine.data_di_consegna_effettiva)}">${escapeHtml(ordine.data_di_consegna_effettiva)}</td>`;
 
     if (ordine.posizione && (ordine.stato == "0" || ordine.stato == "2")) {
         const pos = ordine.posizione;
-        if (descrizione.length > 50 && pos.length > 20) {
-            html += `<td data-toggle="tooltip" title="${pos}" style="cursor: pointer;">${pos.substring(0, 20)}...</td>`;
-        } else if (pos.length > 50) {
-            html += `<td data-toggle="tooltip" title="${pos}" style="cursor: pointer;">${pos.substring(0, 50)}...</td>`;
-        } else {
-            html += `<td>${pos}</td>`;
-        }
+        html += cellaTroncata(pos, descrizione.length > 50 && pos.length > 20 ? 20 : 50);
     } else {
         html += `<td></td>`;
     }
 
-    html += prezzo !== '' ? `<td>${prezzo}€</td>` : `<td>A vista</td>`;
+    html += prezzo !== '' ? `<td>${prezzo} €</td>` : `<td>A vista</td>`;
 
+    const datiConsegna = `data-quantita_originale="${escapeHtml(ordine.quantita)}" data-quantita_consegnata="${escapeHtml(quantita_consegnata)}" data-id="${id}"`;
     if (ordine.stato == "0") {
-        html += `<td><button class='btn btn-sm btn-success consegna_articolo' data-quantita_originale=${ordine.quantita} data-quantita_consegnata=${quantita_consegnata} data-id='${ordine.id}'>Consegnato</button></td>`;
+        html += `<td><button class='btn btn-sm btn-success consegna_articolo' ${datiConsegna}>Consegnato</button></td>`;
     } else if (ordine.stato == "1") {
-        html += `<td><div class="loader_modal_annulla_consegna d-none" id='loader_annulla_consegna_${ordine.id}'></div><button class='btn btn-sm btn-danger annulla_consegna' data-id='${ordine.id}'>Annulla consegna</button></td>`;
+        html += `<td><div class="loader_modal_annulla_consegna d-none" id="loader_annulla_consegna_${id}"></div><button class='btn btn-sm btn-danger annulla_consegna' data-id="${id}">Annulla consegna</button></td>`;
     } else {
-        html += `<td><button class='btn btn-sm btn-warning consegna_articolo' data-quantita_originale=${ordine.quantita} data-quantita_consegnata=${quantita_consegnata} data-id='${ordine.id}'>Consegnato</button></td>`;
+        html += `<td><button class='btn btn-sm btn-warning consegna_articolo' ${datiConsegna}>Consegnato</button></td>`;
     }
 
     html += `</tr>`;
@@ -130,8 +156,8 @@ function inserisciOrdineChiuso(ordine, year) {
     window.myAPI.putOrdineChiuso(ordine, year);
 }
 
-function cercaCliente(nome, num_telefono) {
-    return window.myAPI.getClienteByNomeEEmail(nome, num_telefono);
+function cercaCliente(nome, num_telefono, escludi_id = null) {
+    return window.myAPI.getClienteByNomeEEmail(nome, num_telefono, escludi_id);
 }
 
 function inserisciCliente(cliente) {
@@ -140,15 +166,16 @@ function inserisciCliente(cliente) {
 
 function popolaTabellaClienti() {
     const clienti = window.myAPI.getElencoClienti();
-    return clienti.map(cliente => `<tr>
-        <td class='nome_cliente' data-id="${cliente.id}" data-nome="${cliente.nome}">${cliente.nome}</td>
-        <td class="edit_numero_di_telefono" id="${cliente.id}" data-id="${cliente.id}" data-numero="${cliente.email}">${cliente.email}</td>
-        <td style="width: 6% !important;"><button class='btn btn-sm btn-secondary modifica_cliente' data-num_telefono="${cliente.email}" data-nome="${cliente.nome}" data-id='${cliente.id}'>Modifica</button></td>
-    </tr>`).join('');
-}
-
-function isNumber(n) {
-    return !isNaN(parseFloat(n)) && isFinite(n);
+    return clienti.map(cliente => {
+        const id = escapeHtml(cliente.id);
+        const nome = escapeHtml(cliente.nome);
+        const telefono = escapeHtml(cliente.email);
+        return `<tr>
+        <td class='nome_cliente' data-id="${id}" data-nome="${nome}">${nome}</td>
+        <td class="edit_numero_di_telefono" id="${id}" data-id="${id}" data-numero="${telefono}">${telefono}</td>
+        <td style="width: 6% !important;"><button class='btn btn-sm btn-secondary modifica_cliente' data-num_telefono="${telefono}" data-nome="${nome}" data-id="${id}">Modifica</button></td>
+    </tr>`;
+    }).join('');
 }
 
 function getDateSortKey(dateValue) {
@@ -159,17 +186,19 @@ function getDateSortKey(dateValue) {
     if (parts.length !== 3) {
         return '';
     }
-    return `${parts[2]}${parts[1]}${parts[0]}`;
+    return escapeHtml(`${parts[2]}${parts[1]}${parts[0]}`);
 }
 
 function popolaTabellaPrezzi() {
     const prodotti = window.myAPI.getElencoProdotti();
     return prodotti.map(prodotto => {
-        const tValue = prodotto.prezzo ? parseFloat(prodotto.prezzo.replace(/,/g, '.')) : '';
-        const simbolo_euro = isNumber(tValue) ? '€' : '';
+        const simbolo_euro = Number.isFinite(parsePrezzo(prodotto.prezzo)) ? '€' : '';
+        const id = escapeHtml(prodotto.id);
+        const descrizione = escapeHtml(prodotto.descrizione);
+        const prezzo = escapeHtml(prodotto.prezzo);
         return `<tr>
-            <td class='nome_prodotto' data-id="${prodotto.id}" data-nome="${prodotto.descrizione}">${prodotto.descrizione}</td>
-            <td class="edit_prezzo_prodotto" id="${prodotto.id}" data-id="${prodotto.id}" data-prezzo="${prodotto.prezzo}">${prodotto.prezzo} ${simbolo_euro}</td>
+            <td class='nome_prodotto' data-id="${id}" data-nome="${descrizione}">${descrizione}</td>
+            <td class="edit_prezzo_prodotto" id="${id}" data-id="${id}" data-prezzo="${prezzo}">${prezzo} ${simbolo_euro}</td>
         </tr>`;
     }).join('');
 }
@@ -202,42 +231,22 @@ function eliminaOrdineChiuso(id_ordine, year) {
     window.myAPI.eliminaOrdineChiuso(id_ordine, year);
 }
 
-function cambiaOrdini(anno_da_controllare) {
-    let ordini;
-
-    ordini = window.myAPI.cambiaOrdini(anno_da_controllare, 0);
-    $.each(ordini, function(index, ordine) {
-        if (!ordine.data_di_consegna || ordine.data_di_consegna.length < 10) return;
-        const nuovo_anno = ordine.data_di_consegna.slice(6, 10);
-        if (nuovo_anno != anno_da_controllare) {
-            window.myAPI.putOrdine(ordine, nuovo_anno);
-            window.myAPI.eliminaOrdine(ordine.id, anno_da_controllare);
-        }
-    });
-
-    ordini = window.myAPI.cambiaOrdini(anno_da_controllare, 2);
-    $.each(ordini, function(index, ordine) {
-        if (!ordine.data_di_consegna || ordine.data_di_consegna.length < 10) return;
-        const nuovo_anno = ordine.data_di_consegna.slice(6, 10);
-        if (nuovo_anno != anno_da_controllare) {
-            window.myAPI.putOrdine(ordine, nuovo_anno);
-            window.myAPI.eliminaOrdine(ordine.id, anno_da_controllare);
-        }
-    });
-
-    ordini = window.myAPI.cambiaOrdini(anno_da_controllare, 1, "ordini_chiusi_");
-    $.each(ordini, function(index, ordine) {
-        if (!ordine.data_di_consegna_effettiva || ordine.data_di_consegna_effettiva.length < 10) return;
-        const nuovo_anno = ordine.data_di_consegna_effettiva.slice(6, 10);
-        if (nuovo_anno != anno_da_controllare) {
-            window.myAPI.putOrdineChiuso(ordine, nuovo_anno);
-            window.myAPI.eliminaOrdineChiuso(ordine.id, anno_da_controllare);
-        }
-    });
-}
-
 function modificaClienteFunction(where, set) {
     window.myAPI.modificaCliente(where, set);
+}
+
+function htmlSelectAnno(id, anno_selezionato) {
+    let html = `<select id="${id}" class="seleziona_anno ms-2 form-select w-auto">`;
+    for (let i = actual_year; i >= 2019; i--) {
+        html += `<option value="${i}"${i == anno_selezionato ? ' selected' : ''}>${i}</option>`;
+    }
+    return html + `</select>`;
+}
+
+function renderToolbarOrdini() {
+    const html = `<button type="button" class="btn btn-primary btn_nuovo_ordine"><i class="fa-solid fa-plus-circle"></i> Ordine</button>`
+        + htmlSelectAnno('seleziona_anno', selected_year);
+    $('#div_bottone_aggiungi').html(html);
 }
 
 function cambiaPagina(nuova_pagina, url) {
@@ -262,48 +271,44 @@ function cambiaPagina(nuova_pagina, url) {
         sidebar_attiva = nuova_pagina;
     }
 
-    let html = '';
-
     setTimeout(function() {
         switch (url) {
             case 'ordini':
                 $('.page_title').html('Ordini');
-                html = `<button type="button" onclick="apriModaleNuovoOrdine()" class="btn btn-primary"><i class="fa-solid fa-plus-circle"></i> Ordine</button>`;
-                html += `<select id="seleziona_anno" class="seleziona_anno ml-2 form-select w-auto" style="margin-left: 5px;">`;
-                for (let i = actual_year; i >= 2019; i--) {
-                    html += `<option value="${i}"${i == selected_year ? ' selected' : ''}>${i}</option>`;
-                }
-                html += `</select>`;
-                $('#div_bottone_aggiungi').html(html);
+                renderToolbarOrdini();
                 create_data_table_ordini(0);
                 break;
 
             case 'ordini_chiusi':
                 $('.page_title').html('Ordini consegnati');
-                html = `<select id="seleziona_anno_chiuso" class="seleziona_anno ml-2 form-select w-auto">`;
-                for (let i = actual_year; i >= 2019; i--) {
-                    html += `<option value="${i}"${i == selected_year_close ? ' selected' : ''}>${i}</option>`;
-                }
-                html += `</select>`;
-                $('#div_bottone_aggiungi').html(html);
+                $('#div_bottone_aggiungi').html(htmlSelectAnno('seleziona_anno_chiuso', selected_year_close));
                 create_data_table_ordini_chiusi(1);
                 break;
 
             case 'prezzi':
                 create_data_table_prezzi();
                 $('.page_title').html('Prezzi');
-                $('#div_bottone_aggiungi').html(`<button type="button" onclick="apriModaleNuovoProdotto()" class="btn btn-primary"><i class="fa-solid fa-plus-circle"></i> Articolo</button>`);
+                $('#div_bottone_aggiungi').html(`<button type="button" class="btn btn-primary btn_nuovo_prodotto"><i class="fa-solid fa-plus-circle"></i> Articolo</button>`);
                 break;
 
             case 'clienti':
                 create_data_table_clienti();
                 $('.page_title').html('Clienti');
-                $('#div_bottone_aggiungi').html(`<button type="button" onclick="apriModaleNuovoCliente()" class="btn btn-primary"><i class="fa-solid fa-plus-circle"></i> Cliente</button>`);
+                $('#div_bottone_aggiungi').html(`<button type="button" class="btn btn-primary btn_nuovo_cliente"><i class="fa-solid fa-plus-circle"></i> Cliente</button>`);
                 break;
         }
         $('.loader').parent().addClass('d-none');
     }, 100);
 }
+
+$(document).on('click', '.sidebar_link', function(e) {
+    e.preventDefault();
+    cambiaPagina($(this).attr('data-pagina'), $(this).attr('data-url'));
+});
+
+$(document).on('click', '.btn_nuovo_ordine', function() { apriModaleNuovoOrdine(); });
+$(document).on('click', '.btn_nuovo_prodotto', function() { apriModaleNuovoProdotto(); });
+$(document).on('click', '.btn_nuovo_cliente', function() { apriModaleNuovoCliente(); });
 
 function inizializza_elementi() {
     $('.js-datepicker').datepicker({
@@ -398,4 +403,10 @@ $(document).on('change', '#seleziona_anno_chiuso', function() {
         create_data_table_ordini_chiusi(1);
         $('.loader').parent().addClass('d-none');
     }, 100);
+});
+
+// Secondo campo di ricerca, basato esclusivamente sulla data di ritiro prevista.
+// Usa la tabella corrente (#table), valida sia nella scheda Ordini che Consegnati.
+$(document).on("keyup", "#search_column", function() {
+    $('#table').DataTable().column(7).search(this.value).draw();
 });

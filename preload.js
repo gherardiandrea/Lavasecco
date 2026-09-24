@@ -1,14 +1,26 @@
 const { contextBridge } = require('electron');
-const { db, toYear, ensureOrderTable, resolveOrderTableName } = require('./database');
+const { db, ensureOrderTable, resolveOrderTableName } = require('./database');
 
 function toInt(value) {
     return parseInt(value, 10);
 }
 
-function getOrdiniTableByTab(tab, year) {
-    const y = toYear(year);
-    const isClosed = String(tab || 'ordini_').startsWith('ordini_chiusi_');
-    return resolveOrderTableName(y, isClosed);
+// Quantità: intero >= 0; null/'' valgono 0 (compatibilità con i dati legacy).
+function toQuantita(value, campo) {
+    if (value == null || value === '') {
+        return 0;
+    }
+    const n = Number(value);
+    if (!Number.isInteger(n) || n < 0) {
+        throw new Error(`Valore non valido per ${campo}: ${value}`);
+    }
+    return n;
+}
+
+function checkQuantitaConsegnata(quantita, quantita_consegnata) {
+    if (quantita_consegnata > quantita) {
+        throw new Error(`Quantità consegnata (${quantita_consegnata}) maggiore della quantità ordinata (${quantita})`);
+    }
 }
 
 function upsertOrdine(tableName, ordine) {
@@ -18,15 +30,16 @@ function upsertOrdine(tableName, ordine) {
         id: ordine.id ? toInt(ordine.id) : null,
         cliente: ordine.cliente ? toInt(ordine.cliente) : null,
         prodotto: ordine.prodotto ? toInt(ordine.prodotto) : null,
-        quantita: ordine.quantita ? toInt(ordine.quantita) : 0,
+        quantita: toQuantita(ordine.quantita, 'quantita'),
         descrizione: ordine.descrizione || '',
         data_di_ritiro_prevista: ordine.data_di_ritiro_prevista || '',
         data_di_consegna: ordine.data_di_consegna || '',
         data_di_consegna_effettiva: ordine.data_di_consegna_effettiva || '',
         stato: String(ordine.stato ?? '0'),
         posizione: ordine.posizione || '',
-        quantita_consegnata: ordine.quantita_consegnata ? toInt(ordine.quantita_consegnata) : 0
+        quantita_consegnata: toQuantita(ordine.quantita_consegnata, 'quantita_consegnata')
     };
+    checkQuantitaConsegnata(payload.quantita, payload.quantita_consegnata);
 
     if (payload.id) {
         const stmt = db.prepare(`
@@ -110,10 +123,12 @@ contextBridge.exposeInMainWorld('myAPI', {
         upsertOrdine(tableName, ordine);
     },
 
-    getClienteByNomeEEmail: (nome, num_telefono) => {
+    // Ritorna 0 se esiste già un cliente con stesso nome e telefono, 1 altrimenti.
+    // escludi_id permette di ignorare il cliente stesso durante una modifica.
+    getClienteByNomeEEmail: (nome, num_telefono, escludi_id = null) => {
         const row = db
-            .prepare('SELECT id FROM clienti WHERE nome = ? AND (email = ? OR telefono = ?) LIMIT 1')
-            .get(nome, num_telefono, num_telefono);
+            .prepare('SELECT id FROM clienti WHERE nome = ? AND (email = ? OR telefono = ?) AND id != ? LIMIT 1')
+            .get(nome, num_telefono, num_telefono, escludi_id == null ? -1 : toInt(escludi_id));
         return row ? 0 : 1;
     },
 
@@ -149,6 +164,16 @@ contextBridge.exposeInMainWorld('myAPI', {
 
     modificaOrdine: (where, set, year) => {
         const tableName = resolveOrderTableName(year, false);
+        if (set && ('quantita' in set || 'quantita_consegnata' in set)) {
+            const attuale = db.prepare(`SELECT quantita, quantita_consegnata FROM "${tableName}" WHERE id = ?`).get(toInt(where.id)) || {};
+            set = { ...set };
+            if ('quantita' in set) set.quantita = toQuantita(set.quantita, 'quantita');
+            if ('quantita_consegnata' in set) set.quantita_consegnata = toQuantita(set.quantita_consegnata, 'quantita_consegnata');
+            checkQuantitaConsegnata(
+                'quantita' in set ? set.quantita : toQuantita(attuale.quantita, 'quantita'),
+                'quantita_consegnata' in set ? set.quantita_consegnata : toQuantita(attuale.quantita_consegnata, 'quantita_consegnata')
+            );
+        }
         updateById(tableName, where.id, set, [
             'cliente',
             'prodotto',
@@ -171,13 +196,6 @@ contextBridge.exposeInMainWorld('myAPI', {
     eliminaOrdineChiuso: (id_ordine, year) => {
         const tableName = resolveOrderTableName(year, true);
         db.prepare(`DELETE FROM "${tableName}" WHERE id = ?`).run(toInt(id_ordine));
-    },
-
-    cambiaOrdini: (anno_da_controllare, stato_da_cercare, tab = 'ordini_') => {
-        const tableName = getOrdiniTableByTab(tab, anno_da_controllare);
-        return db
-            .prepare(`SELECT * FROM "${tableName}" WHERE stato = ? ORDER BY id DESC`)
-            .all(String(stato_da_cercare));
     },
 
     modificaCliente: (where, set) => {

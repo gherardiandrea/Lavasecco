@@ -64,7 +64,7 @@ Riferimento codice: [database.js](database.js).
 - Bridge API preload: [preload.js](preload.js)
 - Inizializzazione e migrazione DB: [database.js](database.js)
 - Configurazione percorsi: [app.config.js](app.config.js)
-- Logica UI renderer: [renderer.js](renderer.js)
+- Avvio e stato globale renderer: [app.js](app.js)
 - Tabelle DataTables: [funzioni_tabelle.js](funzioni_tabelle.js)
 - Interazioni/modali: [function.js](function.js), [function_modals.js](function_modals.js)
 - Layout pagina: [index.html](index.html)
