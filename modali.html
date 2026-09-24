@@ -1,288 +1,168 @@
-<!-- Modale inserimento nuovo ordine -->
-<div class="modal fade" id="aggiungi_ordine_modal" role="dialog" data-bs-backdrop="static" data-bs-keyboard="false" aria-labelledby="modal_title_nuovo_ordine">
-    <div class="modal-dialog modal-lg" role="document">
+<!-- Ordine: nuovo (anche più capi insieme) o modifica. A destra l'anteprima della ricevuta. -->
+<div class="modal fade" id="modale-ordine" tabindex="-1" data-bs-backdrop="static" aria-labelledby="or-titolo">
+    <div class="modal-dialog modal-dialog-centered modale-ordine">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="modal_title_nuovo_ordine">Aggiungi ordine</h5>
-                <button type="button" class="btn-close chiudi_aggiunta_ordine" aria-label="Chiudi"></button>
-            </div>
-            <div class="modal-body" id="aggiungi_ordine_modal_body">
-                <div class="row g-3">
-                    <div class="col-sm-12 col-md-6">
-                        <label class="form-label">Data consegna</label>
-                        <div class="input-group date">
-                            <input type="text" id="data_di_consegna" class="form-control js-datepicker" autocomplete="off">
-                            <span class="input-group-text"><i class="far fa-calendar-alt"></i></span>
+            <div class="ordine-griglia">
+                <div class="ordine-form">
+                    <div class="ordine-testa">
+                        <h2 id="or-titolo">Nuovo ordine</h2>
+                        <button type="button" class="btn-chiudi" data-bs-dismiss="modal" aria-label="Chiudi"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <p class="sub">Il totale si aggiorna mentre compili. <kbd>Esc</kbd> per chiudere, <kbd>Ctrl</kbd>+<kbd>Invio</kbd> per registrare.</p>
+
+                    <div class="campo cliente-box">
+                        <label for="or-cliente-input">Cliente</label>
+                        <input class="input" id="or-cliente-input" placeholder="Scrivi nome o telefono…" autocomplete="off" spellcheck="false">
+                        <div class="risultati" id="or-risultati" role="listbox"></div>
+                        <div class="cliente-scelto" id="or-cliente-scelto">
+                            <span class="avatar" id="or-avatar"></span>
+                            <div><b id="or-cliente-nome"></b><span id="or-cliente-info"></span></div>
+                            <button type="button" id="or-cliente-cambia" title="Cambia cliente" aria-label="Cambia cliente"><i class="fa-solid fa-xmark"></i></button>
                         </div>
                     </div>
-                    <div class="col-sm-12 col-md-6">
-                        <label class="form-label">Data di ritiro prevista</label>
-                        <div class="input-group date">
-                            <input type="text" id="data_di_ritiro_prevista" class="form-control js-datepicker" autocomplete="off">
-                            <span class="input-group-text"><i class="far fa-calendar-alt"></i></span>
+
+                    <div class="riga-2">
+                        <div class="campo">
+                            <label for="or-data-consegna">Lasciato il</label>
+                            <input class="input" type="date" id="or-data-consegna">
+                            <div class="scorciatoie" data-per="#or-data-consegna" data-base="oggi">
+                                <button type="button" data-giorni="0">Oggi</button><button type="button" data-giorni="-1">Ieri</button>
+                            </div>
+                        </div>
+                        <div class="campo">
+                            <label for="or-data-ritiro">Ritiro previsto</label>
+                            <input class="input" type="date" id="or-data-ritiro">
+                            <div class="scorciatoie" data-per="#or-data-ritiro" data-base="#or-data-consegna">
+                                <button type="button" data-giorni="1">+1 giorno</button><button type="button" data-giorni="3">+3 giorni</button><button type="button" data-giorni="7">+1 settimana</button>
+                            </div>
                         </div>
                     </div>
-                    <div class="col-sm-12 col-md-6">
-                        <label class="form-label">Cliente</label>
-                        <select class="select-select2 select_clienti" id="cliente">
-                            <option value=""></option>
-                        </select>
+                    <div class="campo d-none" id="or-box-ritiro-effettivo">
+                        <label for="or-data-ritiro-effettivo">Ultima consegna</label>
+                        <input class="input" type="date" id="or-data-ritiro-effettivo">
                     </div>
-                    <div class="col-sm-12 col-md-6">
-                        <label class="form-label">Posizione</label>
-                        <input type="text" class="form-control" id="posizione">
+                    <div class="campo">
+                        <label for="or-posizione">Posizione in negozio</label>
+                        <input class="input" id="or-posizione" placeholder="es. A3, stender blu…" autocomplete="off">
                     </div>
-                    <div class="col-sm-12 col-md-6">
-                        <label class="form-label">Prodotto</label>
-                        <select class="select-select2 select_prodotti" id="prodotto">
-                            <option value=""></option>
-                        </select>
-                    </div>
-                    <div class="col-sm-11 col-md-5">
-                        <label class="form-label">Quantità</label>
-                        <input type="number" min="1" step="1" class="form-control" id="quantita">
-                    </div>
-                    <div class="col-sm-1 col-md-1 d-flex align-items-end">
-                        <button id="aggiungi_prodotto_a_ordine" type="button" class="btn btn-primary">
-                            <i class="far fa-plus-square"></i>
-                        </button>
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label">Descrizione</label>
-                        <textarea class="form-control" rows="3" id="descrizione"></textarea>
-                    </div>
+
+                    <div class="capi-testa"><h3>Capi</h3><span class="sub" id="or-n-capi"></span></div>
+                    <div id="or-capi"></div>
+                    <button type="button" class="aggiungi-capo" id="or-aggiungi-capo"><i class="fa-solid fa-plus"></i> Aggiungi capo</button>
+
+                    <div class="errore-modale d-none" role="alert"></div>
                 </div>
-                <div id="add_products" class="row mt-2"></div>
-                <div class="alert alert-danger d-none mt-3 mb-0 errore-modale" role="alert"></div>
-            </div>
-            <div class="modal-footer">
-                <div class="loader_modal d-none"></div>
-                <button type="button" class="btn btn-secondary chiudi_aggiunta_ordine">Annulla</button>
-                <button type="button" class="btn btn-success" id="conferma_aggiunta_ordine">Conferma</button>
+
+                <aside class="ricevuta-lato">
+                    <div class="ricevuta">
+                        <div class="intesta"><b>LAVASECCO</b><div>Ricevuta · <span class="tag" id="or-r-numero">Nuovo</span></div></div>
+                        <div class="coppia"><span>Cliente</span><b id="or-r-cliente">—</b></div>
+                        <div class="coppia"><span>Lasciato</span><b id="or-r-consegna">—</b></div>
+                        <div class="coppia"><span>Ritiro</span><b id="or-r-ritiro">—</b></div>
+                        <div class="coppia"><span>Posizione</span><b id="or-r-posizione">—</b></div>
+                        <div class="voci" id="or-r-voci"></div>
+                        <div class="totale"><span>Totale</span><b class="num" id="or-r-totale">0,00 €</b></div>
+                        <div class="nota-prezzi" id="or-r-nota"></div>
+                    </div>
+                    <div class="ricevuta-azioni">
+                        <button type="button" class="btn-app btn-primario" id="or-registra"><i class="fa-solid fa-check"></i> <span id="or-registra-testo">Registra ordine</span></button>
+                        <button type="button" class="btn-app btn-trasparente" data-bs-dismiss="modal">Annulla</button>
+                        <button type="button" class="btn-app btn-trasparente testo-pericolo d-none" id="or-elimina"><i class="fa-solid fa-trash-can"></i> Elimina ordine</button>
+                    </div>
+                </aside>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Modale inserimento nuovo cliente -->
-<div class="modal fade" id="nuovo_cliente_modal" tabindex="-1" role="dialog" aria-labelledby="modal_title_nuovo_cliente">
-    <div class="modal-dialog" role="document">
+<!-- Consegna di un ordine con più capi: quanti ne ritira il cliente -->
+<div class="modal fade" id="modale-consegna" tabindex="-1" aria-labelledby="cons-titolo">
+    <div class="modal-dialog modal-dialog-centered modale-piccola">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="modal_title_nuovo_cliente">Nuovo cliente</h5>
-                <button type="button" class="btn-close btn-close-white" aria-label="Chiudi" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title" id="cons-titolo">Consegna</h5>
+                <button type="button" class="btn-chiudi" data-bs-dismiss="modal" aria-label="Chiudi"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="modal-body">
-                <div class="row g-3">
-                    <div class="col-sm-12 col-md-6">
-                        <label class="form-label">Nome e Cognome</label>
-                        <input type="text" id="nome_nuovo_cliente" class="form-control">
+                <p class="info-consegna" id="cons-info"></p>
+                <label class="etichetta-campo" for="cons-quantita">Capi consegnati ora</label>
+                <div class="consegna-quantita">
+                    <div class="stepper grande">
+                        <button type="button" data-passo="-1" aria-label="Uno in meno">−</button>
+                        <input class="num" id="cons-quantita" inputmode="numeric">
+                        <button type="button" data-passo="1" aria-label="Uno in più">+</button>
                     </div>
-                    <div class="col-sm-12 col-md-6">
-                        <label class="form-label">Numero di telefono</label>
-                        <input type="text" id="num_telefono_nuovo_cliente" class="form-control">
-                    </div>
+                    <span class="di" id="cons-di"></span>
+                    <button type="button" class="chip" id="cons-tutti">Tutti</button>
                 </div>
-                <div class="alert alert-danger d-none mt-3 mb-0 errore-modale" role="alert"></div>
+                <div class="errore-modale d-none" role="alert"></div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
-                <button type="button" class="btn btn-success" id="conferma_aggiunta_cliente">Conferma</button>
+                <button type="button" class="btn-app btn-trasparente" data-bs-dismiss="modal">Annulla</button>
+                <button type="button" class="btn-app btn-primario" id="cons-conferma"><i class="fa-solid fa-check"></i> Conferma consegna</button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Modale modifica cliente -->
-<div class="modal fade" id="modifica_cliente_modal" tabindex="-1" role="dialog" aria-labelledby="modal_title_modifica_cliente">
-    <div class="modal-dialog" role="document">
+<!-- Cliente: nuovo o modifica -->
+<div class="modal fade" id="modale-cliente" tabindex="-1" aria-labelledby="cl-titolo">
+    <div class="modal-dialog modal-dialog-centered modale-piccola">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="modal_title_modifica_cliente">Modifica cliente</h5>
-                <button type="button" class="btn-close btn-close-white" aria-label="Chiudi" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title" id="cl-titolo">Nuovo cliente</h5>
+                <button type="button" class="btn-chiudi" data-bs-dismiss="modal" aria-label="Chiudi"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="modal-body">
-                <div class="row g-3">
-                    <div class="col-sm-12 col-md-6">
-                        <label class="form-label">Nome e Cognome</label>
-                        <input type="text" id="nome_modifica_cliente" class="form-control">
-                    </div>
-                    <div class="col-sm-12 col-md-6">
-                        <label class="form-label">Numero di telefono</label>
-                        <input type="text" id="num_telefono_modifica_cliente" class="form-control">
-                    </div>
-                </div>
-                <div class="alert alert-danger d-none mt-3 mb-0 errore-modale" role="alert"></div>
+                <div class="campo"><label for="cl-nome">Nome e cognome</label><input class="input" id="cl-nome" autocomplete="off"></div>
+                <div class="campo"><label for="cl-telefono">Telefono</label><input class="input" id="cl-telefono" inputmode="tel" autocomplete="off"></div>
+                <div class="errore-modale d-none" role="alert"></div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
-                <button type="button" class="btn btn-success" id="conferma_modifica_cliente">Conferma</button>
+                <button type="button" class="btn-app btn-trasparente" data-bs-dismiss="modal">Annulla</button>
+                <button type="button" class="btn-app btn-primario" id="cl-salva"><i class="fa-solid fa-check"></i> Salva</button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Modale inserimento nuovo prodotto -->
-<div class="modal fade" id="nuovo_prodotto_modal" tabindex="-1" role="dialog" aria-labelledby="modal_title_nuovo_prodotto">
-    <div class="modal-dialog" role="document">
+<!-- Articolo del listino: nuovo o modifica -->
+<div class="modal fade" id="modale-articolo" tabindex="-1" aria-labelledby="ar-titolo">
+    <div class="modal-dialog modal-dialog-centered modale-piccola">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="modal_title_nuovo_prodotto">Nuovo articolo</h5>
-                <button type="button" class="btn-close btn-close-white" aria-label="Chiudi" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title" id="ar-titolo">Nuovo articolo</h5>
+                <button type="button" class="btn-chiudi" data-bs-dismiss="modal" aria-label="Chiudi"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="modal-body">
-                <div class="row g-3">
-                    <div class="col-sm-12 col-md-6">
-                        <label class="form-label">Descrizione</label>
-                        <input type="text" id="descrizione_nuovo_articolo" class="form-control">
-                    </div>
-                    <div class="col-sm-12 col-md-6">
-                        <label class="form-label">Prezzo</label>
-                        <input type="text" id="prezzo_nuovo_articolo" class="form-control" placeholder="es. 7,50 (vuoto = a vista)">
-                    </div>
-                </div>
-                <p class="text-muted small mt-3 mb-0 d-none" id="nota_modifica_prezzo">
-                    Il nuovo prezzo vale per gli ordini inseriti da ora in poi: gli ordini già registrati mantengono il prezzo con cui sono stati inseriti.
-                </p>
-                <div class="alert alert-danger d-none mt-3 mb-0 errore-modale" role="alert"></div>
+                <div class="campo"><label for="ar-descrizione">Descrizione</label><input class="input" id="ar-descrizione" autocomplete="off"></div>
+                <div class="campo"><label for="ar-prezzo">Prezzo</label><input class="input" id="ar-prezzo" placeholder="es. 7,50 — vuoto o &quot;a peso&quot; se non è fisso" autocomplete="off"></div>
+                <p class="nota-campo d-none" id="ar-nota-modifica">Il nuovo prezzo vale per gli ordini inseriti da ora in poi: quelli già registrati mantengono il prezzo con cui sono stati inseriti.</p>
+                <div class="errore-modale d-none" role="alert"></div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
-                <button type="button" class="btn btn-success" id="conferma_aggiunta_prodotto">Conferma</button>
+                <button type="button" class="btn-app btn-trasparente" data-bs-dismiss="modal">Annulla</button>
+                <button type="button" class="btn-app btn-primario" id="ar-salva"><i class="fa-solid fa-check"></i> Salva</button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Modale di conferma eliminazione ordine -->
-<div class="modal fade" id="sei_sicuro_modal" tabindex="-1" role="dialog" aria-labelledby="modal_title_elimina_ordine">
-    <div class="modal-dialog" role="document">
+<!-- Conferma di un'operazione non reversibile (eliminazioni) -->
+<div class="modal fade" id="modale-conferma" tabindex="-1" aria-labelledby="cf-titolo">
+    <div class="modal-dialog modal-dialog-centered modale-piccola">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="modal_title_elimina_ordine">Elimina ordine</h5>
-                <button type="button" class="btn-close btn-close-white" aria-label="Chiudi" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title" id="cf-titolo">Confermi?</h5>
+                <button type="button" class="btn-chiudi" data-bs-dismiss="modal" aria-label="Chiudi"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="modal-body">
-                <p class="mb-0">Sei sicuro di voler eliminare questo ordine? L'operazione non è reversibile.</p>
-                <div class="alert alert-danger d-none mt-3 mb-0 errore-modale" role="alert"></div>
+                <p class="mb-0" id="cf-testo"></p>
+                <div class="errore-modale d-none" role="alert"></div>
             </div>
             <div class="modal-footer">
-                <div class="loader_modal_elimina_ordine d-none"></div>
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
-                <button id="conferma_rimuovi_ordine" type="button" class="btn btn-danger">Elimina</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modale di modifica ordine -->
-<div class="modal fade" id="modifica_ordine_modal" tabindex="-1" role="dialog" aria-labelledby="modal_title_modifica_ordine">
-    <div class="modal-dialog modal-lg" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="modal_title_modifica_ordine">Modifica ordine</h5>
-                <button type="button" class="btn-close btn-close-white" aria-label="Chiudi" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="row g-3">
-                    <div class="col-sm-12 col-md-6">
-                        <label class="form-label">Data consegna</label>
-                        <div class="input-group date">
-                            <input type="text" id="modifica_data_di_consegna" class="form-control js-datepicker" autocomplete="off">
-                            <span class="input-group-text"><i class="far fa-calendar-alt"></i></span>
-                        </div>
-                    </div>
-                    <div id="div_data_di_ritiro_prevista" class="col-sm-12 col-md-6">
-                        <label class="form-label">Data di ritiro prevista</label>
-                        <div class="input-group date">
-                            <input type="text" id="modifica_data_di_ritiro_prevista" class="form-control js-datepicker" autocomplete="off">
-                            <span class="input-group-text"><i class="far fa-calendar-alt"></i></span>
-                        </div>
-                    </div>
-                    <div id="div_data_di_ritiro_effettiva" class="col-sm-12 col-md-6">
-                        <label class="form-label">Data di ritiro effettiva</label>
-                        <div class="input-group date">
-                            <input type="text" id="modifica_data_di_ritiro_effettiva" class="form-control js-datepicker" autocomplete="off">
-                            <span class="input-group-text"><i class="far fa-calendar-alt"></i></span>
-                        </div>
-                    </div>
-                    <div class="col-sm-12 col-md-6">
-                        <label class="form-label">Cliente</label>
-                        <select class="select_clienti_modifica_ordine" id="modifica_cliente">
-                            <option value=""></option>
-                        </select>
-                    </div>
-                    <div class="col-sm-12 col-md-6">
-                        <label class="form-label">Quantità</label>
-                        <input type="number" min="1" step="1" class="form-control" id="modifica_quantita">
-                    </div>
-                    <div class="col-sm-12 col-md-6">
-                        <label class="form-label">Prodotto</label>
-                        <select class="select_prodotti_modifica_ordine" id="modifica_prodotto">
-                            <option value=""></option>
-                        </select>
-                    </div>
-                    <div class="col-sm-12 col-md-6">
-                        <label class="form-label">Posizione</label>
-                        <input type="text" class="form-control" id="modifica_posizione">
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label">Descrizione</label>
-                        <textarea class="form-control" rows="4" id="modifica_descrizione"></textarea>
-                    </div>
-                </div>
-                <div class="alert alert-danger d-none mt-3 mb-0 errore-modale" role="alert"></div>
-            </div>
-            <div class="modal-footer">
-                <div class="loader_modal_modifica_ordine d-none"></div>
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
-                <button id="conferma_modifica_ordine" type="button" class="btn btn-success">Conferma</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modale di consegna ordine -->
-<div class="modal fade" id="quantita_consegnata_modal" tabindex="-1" role="dialog" aria-labelledby="modal_title_consegna">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="modal_title_consegna">Quantità consegnata</h5>
-                <button type="button" class="btn-close btn-close-white" aria-label="Chiudi" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="row g-3">
-                    <div class="col-12">
-                        <label class="form-label">Quantità</label>
-                        <input type="number" min="1" step="1" id="modifica_quantita_consegnata" class="form-control">
-                    </div>
-                </div>
-                <div class="alert alert-danger d-none mt-3 mb-0 errore-modale" role="alert"></div>
-            </div>
-            <div class="modal-footer">
-                <div class="loader_modal_conferma_quantita_confermata d-none"></div>
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
-                <button id="conferma_quantita_consegnata" type="button" class="btn btn-success">Conferma</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modale di conferma eliminazione articolo -->
-<div class="modal fade" id="elimina_prodotto_modal" tabindex="-1" role="dialog" aria-labelledby="modal_title_elimina_prodotto">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="modal_title_elimina_prodotto">Elimina articolo</h5>
-                <button type="button" class="btn-close btn-close-white" aria-label="Chiudi" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <p class="mb-0">Sei sicuro di voler eliminare l'articolo <strong id="descrizione_elimina_prodotto"></strong>? L'operazione non è reversibile.</p>
-                <div class="alert alert-danger d-none mt-3 mb-0 errore-modale" role="alert"></div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
-                <button id="conferma_elimina_prodotto" type="button" class="btn btn-danger">Elimina</button>
+                <button type="button" class="btn-app btn-trasparente" data-bs-dismiss="modal">Annulla</button>
+                <button type="button" class="btn-app btn-pericolo" id="cf-conferma">Elimina</button>
             </div>
         </div>
     </div>

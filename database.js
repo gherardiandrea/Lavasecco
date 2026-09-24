@@ -173,6 +173,7 @@ async function backupGiornaliero(db, backupDir, retentionDays) {
     }
     const dest = await creaBackup(db, path.join(backupDir, `lavasecco-backup-${timestamp()}.sqlite3`));
     setMeta(db, 'last_backup_date', oggi);
+    setMeta(db, 'last_backup_at', new Date().toISOString());
     pruneOldBackups(backupDir, retentionDays);
     return dest;
 }

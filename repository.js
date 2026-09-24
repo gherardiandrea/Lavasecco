@@ -1,4 +1,4 @@
-const { STATO, transaction, parsePrezzo, oggiIso } = require('./database');
+const { STATO, transaction, parsePrezzo, oggiIso, getMeta } = require('./database');
 
 // Errore "previsto" (dati non validi): arriva alla UI con codice e campo, senza stack trace.
 class ErroreValidazione extends Error {
@@ -59,17 +59,54 @@ function dataIso(valore, campo, obbligatoria = false) {
 
 // Il prezzo di un ordine (prezzo_unitario_cent / nota_prezzo) è quello salvato nell'ordine, non il listino attuale
 const SELECT_ORDINE = `
-    SELECT o.*, c.nome AS cliente_nome, p.descrizione AS prodotto_descrizione
+    SELECT o.*, c.nome AS cliente_nome, c.telefono AS cliente_telefono, p.descrizione AS prodotto_descrizione
     FROM ordini o
     JOIN clienti c ON c.id = o.cliente_id
     JOIN prodotti p ON p.id = o.prodotto_id
 `;
 
+// Per gli elenchi solo le colonne mostrate in tabella (meno dati da trasferire alla finestra)
+const SELECT_ELENCO_ORDINI = `
+    SELECT o.id, o.anno, o.stato, o.quantita, o.quantita_consegnata, o.descrizione, o.posizione,
+           o.data_consegna, o.data_ritiro_prevista, o.data_ritiro_effettiva, o.prezzo_unitario_cent, o.nota_prezzo,
+           c.nome AS cliente_nome, c.telefono AS cliente_telefono, p.descrizione AS prodotto_descrizione
+    FROM ordini o
+    JOIN clienti c ON c.id = o.cliente_id
+    JOIN prodotti p ON p.id = o.prodotto_id
+`;
+
+const LIMITE_RICERCA_CLIENTI = 30;
+// Quante righe mostrare negli elenchi della pagina "Oggi"
+const RIGHE_OGGI = 8;
+
+// Quanti ordini aperti ha ogni cliente
+const ORDINI_APERTI_CLIENTE = '(SELECT COUNT(*) FROM ordini o WHERE o.cliente_id = c.id AND o.stato IN (0, 2)) AS ordini_aperti';
+
+// Data ISO spostata di n giorni (in UTC, senza problemi di ora legale)
+function spostaGiorni(iso, n) {
+    const d = new Date(iso + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().slice(0, 10);
+}
+
+// Testo da cercare con LIKE: i caratteri speciali % e _ vanno trattati come testo
+function patternLike(t) {
+    return t.replace(/[\\%_]/g, (c) => '\\' + c);
+}
+
 function createRepository(db, { oggi = oggiIso, annoCorrente = () => new Date().getFullYear() } = {}) {
     const q = {
-        clienti: db.prepare('SELECT id, nome, telefono FROM clienti ORDER BY nome COLLATE NOCASE'),
+        clienti: db.prepare(`SELECT c.id, c.nome, c.telefono, ${ORDINI_APERTI_CLIENTE} FROM clienti c ORDER BY c.nome COLLATE NOCASE`),
         clienteDuplicato: db.prepare('SELECT id FROM clienti WHERE nome = ? COLLATE NOCASE AND telefono = ? AND id != ? LIMIT 1'),
         clienteEsiste: db.prepare('SELECT 1 FROM clienti WHERE id = ?'),
+        // Prima chi inizia con il testo cercato, poi chi lo contiene (nel nome o nel telefono)
+        cercaClienti: db.prepare(`
+            SELECT c.id, c.nome, c.telefono, ${ORDINI_APERTI_CLIENTE} FROM clienti c
+            WHERE c.nome LIKE @contiene ESCAPE '\\' OR c.telefono LIKE @contiene ESCAPE '\\'
+            ORDER BY CASE WHEN c.nome LIKE @inizia ESCAPE '\\' THEN 0 ELSE 1 END, c.nome COLLATE NOCASE
+            LIMIT @limite
+        `),
+        primiClienti: db.prepare(`SELECT c.id, c.nome, c.telefono, ${ORDINI_APERTI_CLIENTE} FROM clienti c ORDER BY c.nome COLLATE NOCASE LIMIT ?`),
         inserisciCliente: db.prepare('INSERT INTO clienti (nome, telefono) VALUES (?, ?)'),
         aggiornaCliente: db.prepare('UPDATE clienti SET nome = ?, telefono = ? WHERE id = ?'),
 
@@ -87,8 +124,9 @@ function createRepository(db, { oggi = oggiIso, annoCorrente = () => new Date().
         eliminaProdotto: db.prepare('DELETE FROM prodotti WHERE id = ?'),
 
         ordine: db.prepare(`${SELECT_ORDINE} WHERE o.id = ?`),
-        ordiniAperti: db.prepare(`${SELECT_ORDINE} WHERE o.anno = ? AND o.stato IN (0, 2) ORDER BY o.id DESC`),
-        ordiniConsegnati: db.prepare(`${SELECT_ORDINE} WHERE o.anno = ? AND o.stato = 1 ORDER BY o.id DESC`),
+        // Gli ordini da consegnare sono di tutti gli anni: un capo lasciato a dicembre si ritira a gennaio
+        ordiniAperti: db.prepare(`${SELECT_ELENCO_ORDINI} WHERE o.stato IN (0, 2) ORDER BY o.id DESC`),
+        ordiniConsegnati: db.prepare(`${SELECT_ELENCO_ORDINI} WHERE o.anno = ? AND o.stato = 1 ORDER BY o.id DESC`),
         inserisciOrdine: db.prepare(`
             INSERT INTO ordini (anno, cliente_id, prodotto_id, prezzo_unitario_cent, nota_prezzo, quantita, descrizione, posizione, data_consegna, data_ritiro_prevista)
             VALUES (@anno, @cliente_id, @prodotto_id, @prezzo_unitario_cent, @nota_prezzo, @quantita, @descrizione, @posizione, @data_consegna, @data_ritiro_prevista)
@@ -104,7 +142,36 @@ function createRepository(db, { oggi = oggiIso, annoCorrente = () => new Date().
             UPDATE ordini SET stato = @stato, quantita_consegnata = @quantita_consegnata, data_ritiro_effettiva = @data_ritiro_effettiva
             WHERE id = @id
         `),
-        eliminaOrdine: db.prepare('DELETE FROM ordini WHERE id = ?')
+        eliminaOrdine: db.prepare('DELETE FROM ordini WHERE id = ?'),
+
+        // Pagina "Oggi"
+        daRitirare: db.prepare(`
+            SELECT COUNT(*) AS ordini, COALESCE(SUM(quantita - quantita_consegnata), 0) AS capi
+            FROM ordini WHERE stato IN (0, 2) AND data_ritiro_prevista = ?
+        `),
+        inRitardoConteggio: db.prepare(`
+            SELECT COUNT(*) AS ordini, MIN(data_ritiro_prevista) AS piu_vecchio
+            FROM ordini WHERE stato IN (0, 2) AND data_ritiro_prevista < ?
+        `),
+        apertiConteggio: db.prepare('SELECT COUNT(*) AS ordini FROM ordini WHERE stato IN (0, 2)'),
+        consegnatiNelGiorno: db.prepare(`
+            SELECT COUNT(*) AS ordini, COALESCE(SUM(prezzo_unitario_cent * quantita), 0) AS cent
+            FROM ordini WHERE stato = 1 AND data_ritiro_effettiva = ?
+        `),
+        consegnePerGiorno: db.prepare(`
+            SELECT data_ritiro_effettiva AS data, COUNT(*) AS ordini
+            FROM ordini WHERE stato = 1 AND data_ritiro_effettiva BETWEEN ? AND ?
+            GROUP BY data_ritiro_effettiva
+        `),
+        ritiriDelGiorno: db.prepare(`
+            ${SELECT_ELENCO_ORDINI} WHERE o.stato IN (0, 2) AND o.data_ritiro_prevista = ?
+            ORDER BY o.posizione COLLATE NOCASE, o.id LIMIT ?
+        `),
+        // I ritardi più recenti per primi: sono quelli su cui ha senso richiamare il cliente
+        ritardiRecenti: db.prepare(`
+            ${SELECT_ELENCO_ORDINI} WHERE o.stato IN (0, 2) AND o.data_ritiro_prevista < ?
+            ORDER BY o.data_ritiro_prevista DESC, o.id DESC LIMIT ?
+        `)
     };
 
     function caricaOrdine(id) {
@@ -139,6 +206,16 @@ function createRepository(db, { oggi = oggiIso, annoCorrente = () => new Date().
     return {
         getClienti() {
             return q.clienti.all();
+        },
+
+        // Ricerca per la select dei clienti: per nome o telefono, al massimo LIMITE_RICERCA_CLIENTI risultati.
+        cercaClienti(ricerca = '') {
+            const t = testo(ricerca);
+            if (t === '') {
+                return q.primiClienti.all(LIMITE_RICERCA_CLIENTI);
+            }
+            const p = patternLike(t);
+            return q.cercaClienti.all({ contiene: `%${p}%`, inizia: `${p}%`, limite: LIMITE_RICERCA_CLIENTI });
         },
 
         // Crea (senza id) o modifica (con id) un cliente. Nome + telefono devono essere univoci.
@@ -196,10 +273,12 @@ function createRepository(db, { oggi = oggiIso, annoCorrente = () => new Date().
             return true;
         },
 
-        // vista: 'aperti' (da consegnare, anche in parte) oppure 'consegnati'
+        // vista: 'aperti' (da consegnare, anche in parte, di tutti gli anni) oppure 'consegnati' (dell'anno indicato)
         getOrdini({ vista, anno }) {
-            const a = intero(anno, 'anno', 2000);
-            return vista === 'consegnati' ? q.ordiniConsegnati.all(a) : q.ordiniAperti.all(a);
+            if (vista === 'consegnati') {
+                return q.ordiniConsegnati.all(intero(anno, 'anno', 2000));
+            }
+            return q.ordiniAperti.all();
         },
 
         getOrdine(id) {
@@ -289,6 +368,63 @@ function createRepository(db, { oggi = oggiIso, annoCorrente = () => new Date().
             });
         },
 
+        // Riporta la consegna di un ordine allo stato indicato (usato da "Annulla" subito dopo una consegna
+        // o un annullamento di consegna): stato, quantità consegnata e data devono essere coerenti.
+        ripristinaConsegna(id, precedente) {
+            return transaction(db, () => {
+                const ordine = caricaOrdine(id);
+                const stato = intero(precedente.stato, 'stato', 0);
+                const quantita_consegnata = intero(precedente.quantita_consegnata, 'quantita_consegnata', 0);
+                const coerente =
+                    (stato === STATO.APERTO && quantita_consegnata === 0) ||
+                    (stato === STATO.PARZIALE && quantita_consegnata > 0 && quantita_consegnata < ordine.quantita) ||
+                    (stato === STATO.CONSEGNATO && quantita_consegnata === ordine.quantita);
+                if (!coerente) {
+                    throw new ErroreValidazione('valore_non_valido', 'Stato della consegna non valido');
+                }
+                q.aggiornaConsegna.run({
+                    id: ordine.id,
+                    stato,
+                    quantita_consegnata,
+                    data_ritiro_effettiva: stato === STATO.APERTO ? null : dataIso(precedente.data_ritiro_effettiva, 'data_ritiro_effettiva')
+                });
+                return caricaOrdine(ordine.id);
+            });
+        },
+
+        // Tutto quello che serve alla pagina "Oggi" in una sola chiamata
+        riepilogoOggi() {
+            const giorno = oggi();
+            const ieri = spostaGiorni(giorno, -1);
+            // Settimana da lunedì a domenica
+            const giornoSettimana = (new Date(giorno + 'T00:00:00Z').getUTCDay() + 6) % 7;
+            const lunedi = spostaGiorni(giorno, -giornoSettimana);
+            const domenica = spostaGiorni(lunedi, 6);
+            const perGiorno = new Map(q.consegnePerGiorno.all(lunedi, domenica).map((r) => [r.data, r.ordini]));
+
+            return {
+                oggi: giorno,
+                daRitirare: { ...q.daRitirare.get(giorno) },
+                inRitardo: { ...q.inRitardoConteggio.get(giorno) },
+                aperti: q.apertiConteggio.get().ordini,
+                consegnatiOggi: { ...q.consegnatiNelGiorno.get(giorno) },
+                consegnatiIeri: { ...q.consegnatiNelGiorno.get(ieri) },
+                settimana: Array.from({ length: 7 }, (_, i) => {
+                    const data = spostaGiorni(lunedi, i);
+                    return { data, ordini: perGiorno.get(data) || 0 };
+                }),
+                ritiriOggi: q.ritiriDelGiorno.all(giorno, RIGHE_OGGI),
+                ritardiRecenti: q.ritardiRecenti.all(giorno, RIGHE_OGGI)
+            };
+        },
+
+        // Data e ora dell'ultimo backup automatico
+        getInfoBackup() {
+            return {
+                ultimo: getMeta(db, 'last_backup_at') || getMeta(db, 'last_backup_date')
+            };
+        },
+
         eliminaOrdine(id) {
             if (q.eliminaOrdine.run(idValido(id)).changes === 0) {
                 throw new ErroreValidazione('non_trovato', 'Ordine non trovato');
@@ -300,9 +436,10 @@ function createRepository(db, { oggi = oggiIso, annoCorrente = () => new Date().
 
 // Metodi invocabili dal renderer via IPC (whitelist).
 const METODI_PUBBLICI = [
-    'getClienti', 'salvaCliente',
+    'getClienti', 'cercaClienti', 'salvaCliente',
     'getProdotti', 'salvaProdotto', 'eliminaProdotto',
-    'getOrdini', 'getOrdine', 'creaOrdini', 'modificaOrdine', 'consegnaOrdine', 'annullaConsegna', 'eliminaOrdine'
+    'getOrdini', 'getOrdine', 'creaOrdini', 'modificaOrdine', 'consegnaOrdine', 'annullaConsegna', 'ripristinaConsegna', 'eliminaOrdine',
+    'riepilogoOggi', 'getInfoBackup'
 ];
 
 module.exports = { createRepository, ErroreValidazione, METODI_PUBBLICI };

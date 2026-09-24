@@ -7,6 +7,9 @@ const { createRepository, ErroreValidazione, METODI_PUBBLICI } = require('./repo
 
 const INDEX_PATH = path.join(__dirname, 'index.html');
 
+// Interfaccia in italiano anche per i controlli di Chromium (es. selettore data gg/mm/aaaa)
+app.commandLine.appendSwitch('lang', 'it-IT');
+
 let mainWindow = null;
 let database = null;
 
@@ -14,6 +17,8 @@ function createWindow() {
     mainWindow = new BrowserWindow({
         width: 1200,
         height: 800,
+        minWidth: 1024,
+        minHeight: 680,
         show: false,
         icon: path.join(__dirname, 'img', process.platform === 'win32' ? 'icon.ico' : 'icon.png'),
         webPreferences: {
@@ -60,20 +65,43 @@ function registraIpc(repository) {
             return { ok: false, errore: { codice: 'interno', messaggio: error.message } };
         }
     });
+
+    // Dall'interfaccia (riquadro backup): l'esito lo mostra il renderer
+    ipcMain.handle('app:esportaBackup', async (event) => {
+        if (!event.senderFrame || !event.senderFrame.url.startsWith('file://')) {
+            return { ok: false, errore: { codice: 'non_autorizzato', messaggio: 'Richiesta non autorizzata' } };
+        }
+        try {
+            return { ok: true, dati: await esportaBackup() };
+        } catch (error) {
+            console.error('Esportazione backup non riuscita:', error);
+            return { ok: false, errore: { codice: 'interno', messaggio: error.message } };
+        }
+    });
 }
 
-async function esportaBackup(paths) {
+// Salva una copia del database dove sceglie l'utente (es. chiavetta).
+// Ritorna { esportato, percorso } oppure { esportato: false } se annullato; lancia in caso di errore.
+async function esportaBackup() {
     const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
         title: 'Esporta backup del database',
         defaultPath: `lavasecco-backup-${timestamp()}.sqlite3`,
         filters: [{ name: 'Database SQLite', extensions: ['sqlite3'] }]
     });
     if (canceled || !filePath) {
-        return;
+        return { esportato: false };
     }
+    await creaBackup(database.db, filePath);
+    return { esportato: true, percorso: filePath };
+}
+
+// Dal menu: esito mostrato con le finestre di sistema
+async function esportaBackupDaMenu() {
     try {
-        await creaBackup(database.db, filePath);
-        dialog.showMessageBox(mainWindow, { type: 'info', message: 'Backup esportato', detail: filePath });
+        const esito = await esportaBackup();
+        if (esito.esportato) {
+            dialog.showMessageBox(mainWindow, { type: 'info', message: 'Backup esportato', detail: esito.percorso });
+        }
     } catch (error) {
         dialog.showErrorBox('Backup non riuscito', error.message);
     }
@@ -84,7 +112,7 @@ function creaMenu(paths) {
         {
             label: 'File',
             submenu: [
-                { label: 'Esporta backup…', accelerator: 'CmdOrCtrl+Shift+S', click: () => esportaBackup(paths) },
+                { label: 'Esporta backup…', accelerator: 'CmdOrCtrl+Shift+S', click: esportaBackupDaMenu },
                 { label: 'Apri cartella dati', click: () => shell.openPath(paths.DATA_DIR) },
                 { type: 'separator' },
                 { role: 'quit', label: 'Esci' }

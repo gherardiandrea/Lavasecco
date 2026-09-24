@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="it">
     <head>
         <meta charset="UTF-8">
         <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self';" />
@@ -17,71 +17,121 @@
         <link href="./node_modules/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet">
         <link href="./node_modules/datatables.net-bs5/css/dataTables.bootstrap5.min.css" rel="stylesheet">
         <link href="./node_modules/@fortawesome/fontawesome-free/css/all.min.css" rel="stylesheet">
-        <link href="./node_modules/bootstrap-datepicker/dist/css/bootstrap-datepicker3.min.css" rel="stylesheet">
-        <link href="./node_modules/select2/dist/css/select2.min.css" rel="stylesheet">
-        <link href="./node_modules/select2-bootstrap-5-theme/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet">
 
         <link href="./styles.css" rel="stylesheet">
     </head>
     <body>
-        <!-- Navbar Responsive Bootstrap -->
-        <nav class="navbar navbar-expand-lg app-navbar mb-4">
-            <div class="container-fluid">
-                <a class="navbar-brand app-brand" href="#">Lavasecco</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="collapse navbar-collapse" id="navbarNav">
-                    <ul class="navbar-nav me-auto mb-2 mb-lg-0 nav-pills-gap">
-                        <li class="nav-item"><a class="nav-link sidebar_link ordini active" href="#" data-pagina="ordini" data-url="ordini">Ordini</a></li>
-                        <li class="nav-item"><a class="nav-link sidebar_link clienti" href="#" data-pagina="clienti" data-url="clienti">Clienti</a></li>
-                        <li class="nav-item"><a class="nav-link sidebar_link prodotti" href="#" data-pagina="prodotti" data-url="prezzi">Prodotti</a></li>
-                        <li class="nav-item"><a class="nav-link sidebar_link ordini_chiusi" href="#" data-pagina="ordini_chiusi" data-url="ordini_chiusi">Consegnati</a></li>
-                    </ul>
+        <div class="app">
+            <aside class="sidebar">
+                <div class="brand">
+                    <img class="brand-logo" src="./img/icon.png" alt="">
+                    <div><div class="brand-nome">LAVASECCO</div><div class="brand-sub">Gestione ordini</div></div>
                 </div>
-            </div>
-        </nav>
+                <nav class="nav" aria-label="Sezioni">
+                    <a href="#" data-pagina="oggi" class="attivo"><i class="fa-solid fa-sun"></i> Oggi <span class="conta allarme d-none" id="conta-ritardo" title="Ordini in ritardo"></span></a>
+                    <a href="#" data-pagina="aperti"><i class="fa-solid fa-shirt"></i> Da consegnare <span class="conta d-none" id="conta-aperti"></span></a>
+                    <a href="#" data-pagina="consegnati"><i class="fa-solid fa-circle-check"></i> Consegnati</a>
+                    <div class="nav-sez">Archivio</div>
+                    <a href="#" data-pagina="clienti"><i class="fa-solid fa-user-group"></i> Clienti</a>
+                    <a href="#" data-pagina="listino"><i class="fa-solid fa-tags"></i> Listino</a>
+                </nav>
+                <div class="sidebar-piede">
+                    <button type="button" class="backup" id="stato-backup" title="Esporta una copia del database (es. su chiavetta)">
+                        <span class="pallino"></span>
+                        <span><b id="backup-titolo">Backup</b><span id="backup-dettaglio">—</span></span>
+                        <i class="fa-solid fa-download backup-icona"></i>
+                    </button>
+                </div>
+            </aside>
 
-        <div class="container">
-            <div class="row">
-                <div class="col-12">
-                    <div class="card shadow-sm mb-4">
-                        <div class="card-body">
-                            <h3 class="text-center page_title">Ordini</h3>
-                            <div id="div_bottone_aggiungi" class="d-flex mb-3"></div>
-                            <div class="d-flex justify-content-center mb-3">
-                                <div class="loader" id="main_loader"></div>
-                            </div>
-                            <div class='mt-4' id="table_div"></div>
-                            <div id="alert_feedback" class="alert alert-success d-none mt-3" role="alert"></div>
-                        </div>
-                    </div>
+            <main class="main">
+                <div class="topbar">
+                    <label class="cerca">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input id="cerca-globale" type="search" placeholder="Cerca negli ordini da consegnare…" autocomplete="off">
+                        <kbd>/</kbd>
+                    </label>
+                    <button type="button" class="btn-app btn-primario" id="btn-nuovo-ordine"><i class="fa-solid fa-plus"></i> Nuovo ordine <kbd>N</kbd></button>
+                    <div class="data-oggi"><b id="data-oggi-giorno"></b><span id="data-oggi-anno"></span></div>
                 </div>
-            </div>
+
+                <div class="contenuto" id="contenuto">
+                    <!-- Pagina "Oggi" -->
+                    <section class="vista" id="vista-oggi">
+                        <div class="titolo-pagina">
+                            <h1 id="saluto">Buongiorno</h1>
+                            <p id="oggi-sottotitolo"></p>
+                        </div>
+                        <div class="kpi-griglia">
+                            <button type="button" class="kpi teal" data-filtro="oggi">
+                                <span class="etichetta"><span class="icona"><i class="fa-solid fa-bag-shopping"></i></span>Da ritirare oggi</span>
+                                <span class="valore num" id="kpi-oggi">–</span><span class="nota" id="kpi-oggi-nota"></span>
+                            </button>
+                            <button type="button" class="kpi coral" data-filtro="ritardo">
+                                <span class="etichetta"><span class="icona"><i class="fa-solid fa-clock"></i></span>In ritardo</span>
+                                <span class="valore num" id="kpi-ritardo">–</span><span class="nota" id="kpi-ritardo-nota"></span>
+                            </button>
+                            <button type="button" class="kpi blu" data-filtro="tutti">
+                                <span class="etichetta"><span class="icona"><i class="fa-solid fa-shirt"></i></span>Da consegnare</span>
+                                <span class="valore num" id="kpi-aperti">–</span><span class="nota">ordini aperti, tutti gli anni</span>
+                            </button>
+                            <div class="kpi verde">
+                                <span class="etichetta"><span class="icona"><i class="fa-solid fa-euro-sign"></i></span>Consegnato oggi</span>
+                                <span class="valore num" id="kpi-incasso">–</span><span class="nota" id="kpi-incasso-nota"></span>
+                            </div>
+                        </div>
+                        <div class="oggi-griglia">
+                            <div class="pannello">
+                                <div class="pannello-testa">
+                                    <h2>Ritiri previsti oggi</h2><span class="sub">per posizione in negozio</span>
+                                    <a class="link" href="#" data-vai-filtro="oggi">Vedi tutti →</a>
+                                </div>
+                                <div id="lista-ritiri-oggi"></div>
+                            </div>
+                            <div class="colonna-pannelli">
+                                <div class="pannello">
+                                    <div class="pannello-testa">
+                                        <h2>In ritardo</h2><span class="sub">ritiro previsto passato</span>
+                                        <a class="link" href="#" data-vai-filtro="ritardo">Vedi tutti →</a>
+                                    </div>
+                                    <div id="lista-ritardi"></div>
+                                </div>
+                                <div class="pannello">
+                                    <div class="pannello-testa"><h2>Consegne della settimana</h2></div>
+                                    <div class="settimana"><div class="barre" id="barre-settimana"></div></div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Pagine con tabella: da consegnare, consegnati, clienti, listino -->
+                    <section class="vista" id="vista-tabella">
+                        <div class="titolo-pagina">
+                            <h1 id="titolo-pagina"></h1>
+                            <p id="sottotitolo-pagina"></p>
+                        </div>
+                        <div class="barra-filtri" id="barra-filtri"></div>
+                        <div class="tabella-box" id="table_div"></div>
+                    </section>
+                </div>
+            </main>
         </div>
 
+        <!-- Modali (caricate da modali.html) -->
+        <div id="modali"></div>
 
-        <!-- Modali -->
-        <span id="modali"></span>
-        <!-- Fine Modali -->
-        
+        <div class="toast-area" id="toasts" aria-live="polite"></div>
+
         <script src="./node_modules/jquery/dist/jquery.min.js"></script>
         <!-- bundle = Bootstrap + Popper -->
         <script src="./node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-
         <script src="./node_modules/datatables.net/js/jquery.dataTables.min.js"></script>
         <script src="./node_modules/datatables.net-bs5/js/dataTables.bootstrap5.min.js"></script>
 
-        <script src="./node_modules/bootstrap-datepicker/dist/js/bootstrap-datepicker.min.js"></script>
-        <script src="./node_modules/bootstrap-datepicker/dist/locales/bootstrap-datepicker.it.min.js"></script>
-
-        <script src="./node_modules/select2/dist/js/select2.full.min.js"></script>
-
-        <!-- Carici i file delle funzioni -->
-        <script src="./funzioni_tabelle.js"></script>
-        <script src="./function.js"></script>
-        <script src="./function_modals.js"></script>
-
-        <script src="./app.js"></script>
+        <script src="./renderer/base.js"></script>
+        <script src="./renderer/tabelle.js"></script>
+        <script src="./renderer/pagine.js"></script>
+        <script src="./renderer/modali.js"></script>
+        <script src="./renderer/avvio.js"></script>
     </body>
 </html>

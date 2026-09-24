@@ -6,7 +6,7 @@ Applicazione desktop Electron per la gestione ordini, clienti e listino di una l
 
 - Dati: SQLite integrato in Electron (`node:sqlite`), nessun modulo nativo da compilare.
 - Il database è accessibile solo dal main process; la finestra gira in sandbox e comunica via IPC.
-- Frontend: jQuery + Bootstrap 5 + DataTables + Select2, tutte le risorse in locale (funziona offline).
+- Frontend: jQuery + Bootstrap 5 (modali) + DataTables, tutte le risorse in locale (funziona offline).
 
 ## Requisiti
 
@@ -45,17 +45,38 @@ Variabili d'ambiente per personalizzare i percorsi: `LAVASECCO_DATA_DIR`, `LAVAS
 
 - **Automatico**: al primo avvio di ogni giorno viene creato un backup in `dati/backups/`;
   quelli più vecchi di 30 giorni vengono eliminati.
-- **Esporta backup…** (menu File, `Ctrl+Shift+S`): salva una copia dove vuoi, ad esempio su una chiavetta.
+- **Esporta backup…** (riquadro "Backup" in fondo alla barra laterale, oppure menu File, `Ctrl+Shift+S`):
+  salva una copia dove vuoi, ad esempio su una chiavetta. Il riquadro mostra anche quando è stato fatto l'ultimo backup.
 - **Da riga di comando**: `npm run backup-db` (oppure `npm run backup-db -- D:\Backup` per scegliere la cartella).
 
 Tutti i backup usano l'API di backup di SQLite: la copia è coerente anche con l'app aperta.
 Per ripristinare un backup: chiudere l'app e sostituire `lavasecco.sqlite3` con il file di backup
 (eliminando eventuali `lavasecco.sqlite3-wal` / `-shm` accanto).
 
+## Uso
+
+- **Oggi**: ritiri previsti per oggi (per posizione in negozio), ordini in ritardo, incasso del giorno
+  e consegne della settimana. I riquadri aprono l'elenco già filtrato.
+- **Da consegnare**: tutti gli ordini ancora da consegnare (anche in parte), di qualsiasi anno, con filtri
+  rapidi "Ritiro oggi", "In ritardo", "Consegnati in parte". Eliminare un ordine: dalla modale di modifica.
+- **Consegnati**: ordini consegnati dell'anno scelto (anno di registrazione dell'ordine).
+- **Consegna**: un clic per gli ordini da un capo; con più capi si sceglie quanti ne ritira il cliente.
+  Dopo ogni consegna (o annullamento di consegna) compare un messaggio con **Annulla**, che riporta
+  l'ordine esattamente com'era.
+- **Nuovo ordine**: il cliente si cerca per nome o telefono (anche creandolo al volo), più capi nello stesso
+  ordine, anteprima della ricevuta con il totale aggiornato mentre si compila.
+- La ricerca in alto filtra la tabella della pagina aperta.
+
+Scorciatoie: <kbd>N</kbd> nuovo ordine, <kbd>/</kbd> cerca, <kbd>Ctrl</kbd>+<kbd>Invio</kbd> registra l'ordine,
+<kbd>Esc</kbd> chiude.
+
+Le tabelle ricevono i dati e disegnano solo le righe visibili; dopo un'azione si aggiorna solo la riga
+interessata, mantenendo ricerca, filtri e pagina.
+
 ## Prezzi e listino
 
 Ogni ordine salva il prezzo unitario del listino nel momento in cui viene inserito: modificare il prezzo
-di un articolo (pagina **Prezzi → Modifica**) vale solo per i nuovi ordini, i totali di quelli esistenti
+di un articolo (pagina **Listino → Modifica**) vale solo per i nuovi ordini, i totali di quelli esistenti
 non cambiano. Se in un ordine si cambia il prodotto, l'ordine prende il prezzo di listino del nuovo prodotto.
 
 Un articolo si può eliminare solo se non è mai stato usato in un ordine.
@@ -83,10 +104,11 @@ vanno aperti prima con la versione 2.0.
 | [repository.js](repository.js) | Operazioni e regole di business (validazioni, consegne) |
 | [preload.js](preload.js) | Ponte IPC minimale verso il renderer |
 | [app.config.js](app.config.js) | Percorsi dati e backup |
-| [app.js](app.js) | Avvio e stato globale del renderer |
-| [function.js](function.js) | Helper, righe delle tabelle, select, navigazione |
-| [funzioni_tabelle.js](funzioni_tabelle.js) | Tabelle DataTables |
-| [function_modals.js](function_modals.js) | Modali (ordini, consegne, clienti, prodotti) |
+| [renderer/base.js](renderer/base.js) | Stato, chiamate al main process, formattazione, messaggi (toast) |
+| [renderer/tabelle.js](renderer/tabelle.js) | Tabelle (DataTables) e aggiornamento delle singole righe |
+| [renderer/pagine.js](renderer/pagine.js) | Navigazione, pagina "Oggi", ricerca, backup, scorciatoie |
+| [renderer/modali.js](renderer/modali.js) | Ordine (nuovo/modifica), consegna, clienti, listino, conferme |
+| [renderer/avvio.js](renderer/avvio.js) | Avvio della finestra |
 | [index.html](index.html), [modali.html](modali.html), [styles.css](styles.css) | Layout e tema grafico |
 
 ## Packaging

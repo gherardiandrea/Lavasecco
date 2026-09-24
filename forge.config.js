@@ -2,7 +2,8 @@
 const INCLUSI = [
     /^\/package\.json$/,
     /^\/LICENSE\.md$/,
-    /^\/(main|preload|database|repository|app\.config|app|function|function_modals|funzioni_tabelle)\.js$/,
+    /^\/(main|preload|database|repository|app\.config)\.js$/,
+    /^\/renderer(\/|$)/,
     /^\/(index|modali)\.html$/,
     /^\/styles\.css$/,
     /^\/img(\/|$)/,
