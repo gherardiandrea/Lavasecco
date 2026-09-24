@@ -1,49 +1,171 @@
-// Modules to control application life and create native browser window
-const {app, BrowserWindow} = require('electron')
-const path = require('path')
+const { app, BrowserWindow, ipcMain, Menu, dialog, shell } = require('electron');
+const path = require('path');
 
-function createWindow () {
-  // Create the browser window.
-    const mainWindow = new BrowserWindow({
-        width: 800,
-        height: 600,
+const { LEGACY_DB_PATH, resolvePaths } = require('./app.config');
+const { apriDatabase, backupGiornaliero, creaBackup, timestamp } = require('./database');
+const { createRepository, ErroreValidazione, METODI_PUBBLICI } = require('./repository');
+
+const INDEX_PATH = path.join(__dirname, 'index.html');
+
+let mainWindow = null;
+let database = null;
+
+function createWindow() {
+    mainWindow = new BrowserWindow({
+        width: 1200,
+        height: 800,
+        show: false,
+        icon: path.join(__dirname, 'img', 'logo_trim.png'),
         webPreferences: {
-            preload: path.join(__dirname, 'preload.js')
-        },
-        icon: path.join(__dirname, 'img', 'logo_trim.png')
-    })
+            preload: path.join(__dirname, 'preload.js'),
+            contextIsolation: true,
+            nodeIntegration: false,
+            sandbox: true
+        }
+    });
 
-    // and load the index.html of the app.
-    mainWindow.loadFile('index.html')
+    // L'app mostra solo index.html: niente navigazione né nuove finestre.
+    mainWindow.webContents.on('will-navigate', (event) => event.preventDefault());
+    mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
 
-    // maximize mette la finestra a tutto schermo
-    mainWindow.maximize()
+    mainWindow.loadFile(INDEX_PATH);
+    mainWindow.once('ready-to-show', () => {
+        mainWindow.maximize();
+        mainWindow.show();
+    });
 
-    // Apri DevTools solo quando richiesto esplicitamente.
     if (process.env.ELECTRON_DEVTOOLS === '1') {
-        mainWindow.webContents.openDevTools()
+        mainWindow.webContents.openDevTools();
     }
 }
 
-// This method will be called when Electron has finished
-// initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
-app.whenReady().then(() => {
-    createWindow()
+function registraIpc(repository) {
+    const metodi = new Set(METODI_PUBBLICI);
 
-    app.on('activate', function () {
-        // On macOS it's common to re-create a window in the app when the
-        // dock icon is clicked and there are no other windows open.
-        if (BrowserWindow.getAllWindows().length === 0) createWindow()
-    })
-})
+    // Unico canale: { ok: true, dati } oppure { ok: false, errore: { codice, messaggio, campo } }
+    ipcMain.handle('db', (event, metodo, ...args) => {
+        if (!event.senderFrame || !event.senderFrame.url.startsWith('file://')) {
+            return { ok: false, errore: { codice: 'non_autorizzato', messaggio: 'Richiesta non autorizzata' } };
+        }
+        if (!metodi.has(metodo)) {
+            return { ok: false, errore: { codice: 'metodo_sconosciuto', messaggio: `Metodo sconosciuto: ${metodo}` } };
+        }
+        try {
+            return { ok: true, dati: repository[metodo](...args) };
+        } catch (error) {
+            if (error instanceof ErroreValidazione) {
+                return { ok: false, errore: { codice: error.codice, messaggio: error.message, campo: error.campo } };
+            }
+            console.error(`Errore in ${metodo}:`, error);
+            return { ok: false, errore: { codice: 'interno', messaggio: error.message } };
+        }
+    });
+}
 
-// Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
-app.on('window-all-closed', function () {
-    if (process.platform !== 'darwin') app.quit()
-})
+async function esportaBackup(paths) {
+    const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+        title: 'Esporta backup del database',
+        defaultPath: `lavasecco-backup-${timestamp()}.sqlite3`,
+        filters: [{ name: 'Database SQLite', extensions: ['sqlite3'] }]
+    });
+    if (canceled || !filePath) {
+        return;
+    }
+    try {
+        await creaBackup(database.db, filePath);
+        dialog.showMessageBox(mainWindow, { type: 'info', message: 'Backup esportato', detail: filePath });
+    } catch (error) {
+        dialog.showErrorBox('Backup non riuscito', error.message);
+    }
+}
 
-// In this file you can include the rest of your app's specific main process
-// code. You can also put them in separate files and require them here.
+function creaMenu(paths) {
+    const template = [
+        {
+            label: 'File',
+            submenu: [
+                { label: 'Esporta backup…', accelerator: 'CmdOrCtrl+Shift+S', click: () => esportaBackup(paths) },
+                { label: 'Apri cartella dati', click: () => shell.openPath(paths.DATA_DIR) },
+                { type: 'separator' },
+                { role: 'quit', label: 'Esci' }
+            ]
+        },
+        { role: 'editMenu', label: 'Modifica' },
+        {
+            label: 'Visualizza',
+            submenu: [
+                { role: 'reload', label: 'Ricarica' },
+                { type: 'separator' },
+                { role: 'resetZoom', label: 'Zoom predefinito' },
+                { role: 'zoomIn', label: 'Aumenta zoom' },
+                { role: 'zoomOut', label: 'Riduci zoom' },
+                { type: 'separator' },
+                { role: 'togglefullscreen', label: 'Schermo intero' },
+                ...(app.isPackaged ? [] : [{ role: 'toggleDevTools', label: 'Strumenti sviluppatore' }])
+            ]
+        }
+    ];
+    Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
+async function avvia() {
+    const paths = resolvePaths(app.getPath('userData'));
+
+    try {
+        database = await apriDatabase({
+            dbPath: paths.DB_PATH,
+            backupDir: paths.BACKUP_DIR,
+            legacyDbPath: LEGACY_DB_PATH
+        });
+    } catch (error) {
+        console.error('Apertura database non riuscita:', error);
+        dialog.showErrorBox('Impossibile aprire il database', `${error.message}\n\nPercorso: ${paths.DB_PATH}`);
+        app.exit(1);
+        return;
+    }
+
+    if (database.importato) {
+        console.log(`Database importato da ${LEGACY_DB_PATH} in ${paths.DB_PATH}`);
+    }
+    if (database.reportMigrazione) {
+        console.log('Migrazione schema completata:', JSON.stringify(database.reportMigrazione, null, 2));
+        console.log('Backup pre-migrazione:', database.backupPreMigrazione);
+    }
+
+    registraIpc(createRepository(database.db));
+    creaMenu(paths);
+    createWindow();
+
+    backupGiornaliero(database.db, paths.BACKUP_DIR, paths.BACKUP_RETENTION_DAYS)
+        .catch((error) => console.error('Backup giornaliero non riuscito:', error));
+}
+
+// - Installer Squirrel (Windows): durante install/update/uninstall l'app deve solo uscire.
+// - Una sola istanza alla volta: due processi sullo stesso database porterebbero a dati incoerenti.
+if (require('electron-squirrel-startup') || !app.requestSingleInstanceLock()) {
+    app.quit();
+} else {
+    app.on('second-instance', () => {
+        if (mainWindow) {
+            if (mainWindow.isMinimized()) mainWindow.restore();
+            mainWindow.focus();
+        }
+    });
+
+    app.whenReady().then(avvia);
+
+    app.on('activate', () => {
+        if (database && BrowserWindow.getAllWindows().length === 0) createWindow();
+    });
+
+    app.on('window-all-closed', () => {
+        if (process.platform !== 'darwin') app.quit();
+    });
+
+    app.on('will-quit', () => {
+        if (database) {
+            database.db.close();
+            database = null;
+        }
+    });
+}

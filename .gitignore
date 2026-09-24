@@ -2,19 +2,14 @@ node_modules
 dist/
 out/
 
-# SQLite runtime files
+# Vecchia posizione dei dati (versioni 1.x): database, file WAL, backup e copia rinominata dopo l'import
 str/extraResources/*.sqlite3
 str/extraResources/*.sqlite3-shm
 str/extraResources/*.sqlite3-wal
-
-# Local backups
+str/extraResources/*.sqlite3.spostato-*
 str/extraResources/backups/
 
 # Abandoned template subfolder
 my-app/
-
-# Leftover from Bromium virtualization environment
-plugins/~BROMIUM/
-plugins/**/~BROMIUM/
 
 .claude/

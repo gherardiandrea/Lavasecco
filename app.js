@@ -1,30 +1,42 @@
+// Stati di un ordine (come nel database)
+const STATO = Object.freeze({ APERTO: 0, CONSEGNATO: 1, PARZIALE: 2 });
+
 // Variabili generali
 var numero_ordini_inseriti_contemportaneamente = 0;
 var sidebar_attiva = "sidebar_dashboard";
-var search;
-var search2;
 var actual_year = new Date().getFullYear();
 var selected_year = actual_year;
 var selected_year_close = actual_year;
 var clienti_salvati = [];
 var prodotti_salvati = [];
-var table_ordini, table_ordini_chiusi, table_clienti, table_prezzi;
 
-$(document).ready(function() {
+function caricaModali() {
+    return new Promise((resolve, reject) => {
+        $("#modali").load("modali.html", (risposta, stato, xhr) => {
+            if (stato === 'error') {
+                reject(new Error(`Impossibile caricare le modali (${xhr.status} ${xhr.statusText})`));
+            } else {
+                resolve();
+            }
+        });
+    });
+}
+
+$(document).ready(async function() {
     renderToolbarOrdini();
 
-    // Carico l'html delle modali: select e datepicker vanno inizializzati solo dopo il caricamento
-    $("#modali").load("modali.html", function() {
-        // Inizializzo gli elementi della pagina (DatePicker, Select2, ...)
+    try {
+        // Select e datepicker vanno inizializzati solo dopo il caricamento delle modali
+        await caricaModali();
         inizializza_elementi();
 
-        // Popolo le select di clienti e prodotti (e le cache usate per disegnare la tabella ordini)
-        popolaSelectClienti();
-        popolaSelectProdotti();
+        await Promise.all([popolaSelectClienti(), popolaSelectProdotti()]);
 
         // La tabella ordini è la prima che si visualizza all'avvio dell'app
-        create_data_table_ordini(0);
-
-        $('.loader').parent().addClass('d-none');
-    });
+        await create_data_table_ordini('aperti');
+    } catch (error) {
+        mostraErrorePagina(error);
+    } finally {
+        mostraLoaderPagina(false);
+    }
 });

@@ -1,50 +1,25 @@
-function popolaSelectClienti() {
-    try {
-        $('.select_clienti').val(null).empty();
-        $('.select_clienti_modifica_ordine').val(null).empty();
-        let clienti = window.myAPI.getElencoClienti();
-        clienti_salvati = clienti;
-        if (Array.isArray(clienti)) {
-            clienti.forEach(value => {
-                $('.select_clienti').append($('<option>', { value: value.id, text: value.nome }));
-                $('.select_clienti_modifica_ordine').append($('<option>', { value: value.id, text: value.nome }));
-            });
-        }
-    } catch (error) {
-        $('#alert_feedback').removeClass('d-none').addClass('alert-danger').text('Errore caricamento clienti!');
-        console.error('Errore popolaSelectClienti:', error);
+// ── Accesso ai dati ─────────────────────────────────────────────────────────
+
+// Errore restituito dal main process (validazione o errore interno).
+class ErroreApi extends Error {
+    constructor({ codice, messaggio, campo }) {
+        super(messaggio);
+        this.name = 'ErroreApi';
+        this.codice = codice;
+        this.campo = campo || null;
     }
 }
 
-function popolaSelectProdotti(c = 0) {
-    try {
-        let prodotti = window.myAPI.getElencoProdotti();
-        if (c === 0) {
-            prodotti_salvati = prodotti;
-            $('.select_prodotti').val(null).empty();
-            $('.select_prodotti_modifica_ordine').val(null).empty();
-            if (Array.isArray(prodotti)) {
-                prodotti.forEach(value => {
-                    const prezzo = value.prezzo === "" ? "a vista" : value.prezzo + " €";
-                    $('.select_prodotti').append($('<option>', { value: value.id, text: value.descrizione + ' - ' + prezzo }));
-                    $('.select_prodotti_modifica_ordine').append($('<option>', { value: value.id, text: value.descrizione + ' - ' + prezzo }));
-                });
-            }
-        } else {
-            $("#prodotto_" + c).val(null).empty();
-            $("#prodotto_" + c).append($('<option>', { value: '', text: '' }));
-            if (Array.isArray(prodotti)) {
-                prodotti.forEach(value => {
-                    const prezzo = value.prezzo === "" ? "a vista" : value.prezzo + " €";
-                    $("#prodotto_" + c).append($('<option>', { value: value.id, text: value.descrizione + ' - ' + prezzo }));
-                });
-            }
-        }
-    } catch (error) {
-        $('#alert_feedback').removeClass('d-none').addClass('alert-danger').text('Errore caricamento prodotti!');
-        console.error('Errore popolaSelectProdotti:', error);
+// Chiama un metodo del repository nel main process; lancia ErroreApi se la richiesta fallisce.
+async function api(metodo, ...args) {
+    const risposta = await window.lavasecco.chiama(metodo, ...args);
+    if (!risposta.ok) {
+        throw new ErroreApi(risposta.errore);
     }
+    return risposta.dati;
 }
+
+// ── Formattazione ───────────────────────────────────────────────────────────
 
 // Escape per inserire testo dell'utente in HTML (contenuto e attributi).
 function escapeHtml(value) {
@@ -56,17 +31,62 @@ function escapeHtml(value) {
         .replace(/'/g, '&#39;');
 }
 
-// Converte un prezzo salvato come testo ("7,50", "7.50", "7") in numero; NaN se "a vista".
-function parsePrezzo(prezzo) {
-    if (prezzo == null || String(prezzo).trim() === '') {
-        return NaN;
-    }
-    return parseFloat(String(prezzo).replace(/,/g, '.'));
+function formatEuro(centesimi) {
+    return (centesimi / 100).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
 }
 
-function formatEuro(valore) {
-    return valore.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+// Prezzo di listino: importo fisso oppure nota ("a vista", "a peso"); vuoto = "a vista".
+function testoPrezzo(prodotto) {
+    if (prodotto.prezzo_cent != null) {
+        return formatEuro(prodotto.prezzo_cent);
+    }
+    return prodotto.nota_prezzo || 'a vista';
 }
+
+function maiuscolaIniziale(testo) {
+    return testo.charAt(0).toUpperCase() + testo.slice(1);
+}
+
+// Date: nel database ISO (YYYY-MM-DD), nella UI dd-mm-yyyy come il datepicker.
+function isoToIt(iso) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
+    return m ? `${m[3]}-${m[2]}-${m[1]}` : '';
+}
+
+function itToIso(testo) {
+    const m = /^(\d{1,2})-(\d{1,2})-(\d{4})$/.exec(String(testo || '').trim());
+    return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : '';
+}
+
+// ── Select clienti / prodotti ───────────────────────────────────────────────
+
+function riempiSelect($select, elementi, testoOpzione) {
+    $select.val(null).empty().append($('<option>', { value: '', text: '' }));
+    elementi.forEach((el) => $select.append($('<option>', { value: el.id, text: testoOpzione(el) })));
+}
+
+function testoOpzioneProdotto(prodotto) {
+    return `${prodotto.descrizione} - ${testoPrezzo(prodotto)}`;
+}
+
+async function popolaSelectClienti() {
+    clienti_salvati = await api('getClienti');
+    riempiSelect($('.select_clienti, .select_clienti_modifica_ordine'), clienti_salvati, (c) => c.nome);
+}
+
+// Senza argomenti aggiorna tutte le select prodotti; con $select solo quella (righe aggiunte all'ordine).
+async function popolaSelectProdotti($select = null) {
+    if ($select) {
+        riempiSelect($select, prodotti_salvati, testoOpzioneProdotto);
+        return;
+    }
+    prodotti_salvati = await api('getProdotti');
+    $('.select_prodotti, .select_prodotti_modifica_ordine').each(function() {
+        riempiSelect($(this), prodotti_salvati, testoOpzioneProdotto);
+    });
+}
+
+// ── Righe delle tabelle ─────────────────────────────────────────────────────
 
 // Cella con testo troncato e testo completo nel tooltip nativo (title).
 function cellaTroncata(testo, maxLen) {
@@ -76,164 +96,67 @@ function cellaTroncata(testo, maxLen) {
     return `<td>${escapeHtml(testo)}</td>`;
 }
 
-function buildOrdineRow(ordine, showEditButton, firstCellClass) {
-    const clienteObj = (clienti_salvati || []).find(c => c.id == ordine.cliente);
-    const nome_cliente = clienteObj ? clienteObj.nome : '';
-    const prodotto = (prodotti_salvati || []).find(p => p.id == ordine.prodotto) || {};
+function cellaData(iso) {
+    return `<td data-sort="${escapeHtml(iso || '')}">${escapeHtml(isoToIt(iso))}</td>`;
+}
 
-    const prezzoUnitario = parsePrezzo(prodotto.prezzo);
-    const prezzo = Number.isFinite(prezzoUnitario)
-        ? formatEuro(prezzoUnitario * (parseInt(ordine.quantita, 10) || 0))
-        : '';
-
-    const descrizione = ordine.descrizione || '';
-    const quantita_consegnata = ordine.quantita_consegnata || 0;
-    const quantitaDaConsegnare = (ordine.quantita_consegnata != null)
-        ? ordine.quantita - ordine.quantita_consegnata
-        : ordine.quantita;
-
+function buildOrdineRow(ordine) {
+    const consegnato = ordine.stato === STATO.CONSEGNATO;
     const id = escapeHtml(ordine.id);
-    const tdClass = firstCellClass ? ` class="${firstCellClass}"` : '';
-    const statoClass = ordine.stato == "2" ? 'row-parziale' : ordine.stato == "1" ? 'row-chiuso' : '';
+    const descrizione = ordine.descrizione || '';
+    const statoClass = ordine.stato === STATO.PARZIALE ? 'row-parziale' : consegnato ? 'row-chiuso' : '';
 
-    let html = `<tr id="tr_${id}"${statoClass ? ` class="${statoClass}"` : ''}><td${tdClass}>`;
-    html += `<button class="btn btn-sm btn-danger rimuovi_ordine mt-1" data-id="${id}" style='min-width: 34px;'><i class="fas fa-trash"></i></button>`;
-    if (showEditButton) {
-        html += `<button class="btn btn-sm btn-primary modifica_ordine mt-1" data-id="${id}" style='min-width: 34px;'><i class="far fa-edit"></i></button>`;
+    let html = `<tr id="tr_${id}"${statoClass ? ` class="${statoClass}"` : ''}><td class="td_first">`;
+    html += `<button class="btn btn-sm btn-danger rimuovi_ordine mt-1" data-id="${id}" style='min-width: 34px;' title="Elimina"><i class="fas fa-trash"></i></button>`;
+    if (!consegnato) {
+        html += `<button class="btn btn-sm btn-primary modifica_ordine mt-1" data-id="${id}" style='min-width: 34px;' title="Modifica"><i class="far fa-edit"></i></button>`;
     }
     html += `</td>`;
 
-    html += `<td>${escapeHtml(nome_cliente)}</td>`;
-    html += `<td>${escapeHtml(prodotto.descrizione)}</td>`;
+    html += `<td>${escapeHtml(ordine.cliente_nome)}</td>`;
+    html += `<td>${escapeHtml(ordine.prodotto_descrizione)}</td>`;
     html += `<td>${escapeHtml(ordine.quantita)}</td>`;
-    html += `<td>${escapeHtml(quantitaDaConsegnare)}</td>`;
-
+    html += `<td>${escapeHtml(ordine.quantita - ordine.quantita_consegnata)}</td>`;
     html += cellaTroncata(descrizione, 50);
+    html += cellaData(ordine.data_consegna);
+    html += cellaData(ordine.data_ritiro_prevista);
+    html += cellaData(ordine.data_ritiro_effettiva);
 
-    html += `<td data-sort="${getDateSortKey(ordine.data_di_consegna)}">${escapeHtml(ordine.data_di_consegna)}</td>`;
-    html += `<td data-sort="${getDateSortKey(ordine.data_di_ritiro_prevista)}">${escapeHtml(ordine.data_di_ritiro_prevista)}</td>`;
-    html += `<td data-sort="${getDateSortKey(ordine.data_di_consegna_effettiva)}">${escapeHtml(ordine.data_di_consegna_effettiva)}</td>`;
+    const pos = ordine.posizione || '';
+    html += pos && !consegnato ? cellaTroncata(pos, descrizione.length > 50 ? 20 : 50) : `<td></td>`;
 
-    if (ordine.posizione && (ordine.stato == "0" || ordine.stato == "2")) {
-        const pos = ordine.posizione;
-        html += cellaTroncata(pos, descrizione.length > 50 && pos.length > 20 ? 20 : 50);
-    } else {
-        html += `<td></td>`;
-    }
+    const totale = ordine.prezzo_cent != null ? formatEuro(ordine.prezzo_cent * ordine.quantita) : maiuscolaIniziale(ordine.nota_prezzo || 'a vista');
+    html += `<td>${escapeHtml(totale)}</td>`;
 
-    html += prezzo !== '' ? `<td>${prezzo} €</td>` : `<td>A vista</td>`;
-
-    const datiConsegna = `data-quantita_originale="${escapeHtml(ordine.quantita)}" data-quantita_consegnata="${escapeHtml(quantita_consegnata)}" data-id="${id}"`;
-    if (ordine.stato == "0") {
-        html += `<td><button class='btn btn-sm btn-success consegna_articolo' ${datiConsegna}>Consegnato</button></td>`;
-    } else if (ordine.stato == "1") {
+    if (consegnato) {
         html += `<td><div class="loader_modal_annulla_consegna d-none" id="loader_annulla_consegna_${id}"></div><button class='btn btn-sm btn-danger annulla_consegna' data-id="${id}">Annulla consegna</button></td>`;
     } else {
-        html += `<td><button class='btn btn-sm btn-warning consegna_articolo' ${datiConsegna}>Consegnato</button></td>`;
+        const colore = ordine.stato === STATO.PARZIALE ? 'btn-warning' : 'btn-success';
+        html += `<td><button class='btn btn-sm ${colore} consegna_articolo' data-id="${id}" data-da_consegnare="${escapeHtml(ordine.quantita - ordine.quantita_consegnata)}">Consegnato</button></td>`;
     }
 
-    html += `</tr>`;
-    return html;
+    return html + `</tr>`;
 }
 
-function popolaTabellaOrdini(stato) {
-    const ordini = window.myAPI.getElencoOrdini(stato, stato == 1 ? selected_year_close : selected_year);
-    let html = ordini.map(o => buildOrdineRow(o, stato != 1, 'td_first')).join('');
-
-    if (stato == 0) {
-        const ordiniParziali = window.myAPI.getElencoOrdini(2, selected_year);
-        html += ordiniParziali.map(o => buildOrdineRow(o, true, '')).join('');
-    }
-
-    return html;
-}
-
-function inserisciOrdine(ordine, year = actual_year) {
-    window.myAPI.putOrdine(ordine, year);
-}
-
-function inserisciOrdineChiuso(ordine, year) {
-    window.myAPI.putOrdineChiuso(ordine, year);
-}
-
-function cercaCliente(nome, num_telefono, escludi_id = null) {
-    return window.myAPI.getClienteByNomeEEmail(nome, num_telefono, escludi_id);
-}
-
-function inserisciCliente(cliente) {
-    window.myAPI.putCliente(cliente);
-}
-
-function popolaTabellaClienti() {
-    const clienti = window.myAPI.getElencoClienti();
-    return clienti.map(cliente => {
-        const id = escapeHtml(cliente.id);
-        const nome = escapeHtml(cliente.nome);
-        const telefono = escapeHtml(cliente.email);
-        return `<tr>
-        <td class='nome_cliente' data-id="${id}" data-nome="${nome}">${nome}</td>
-        <td class="edit_numero_di_telefono" id="${id}" data-id="${id}" data-numero="${telefono}">${telefono}</td>
-        <td style="width: 6% !important;"><button class='btn btn-sm btn-secondary modifica_cliente' data-num_telefono="${telefono}" data-nome="${nome}" data-id="${id}">Modifica</button></td>
+function buildClienteRow(cliente) {
+    const id = escapeHtml(cliente.id);
+    const nome = escapeHtml(cliente.nome);
+    const telefono = escapeHtml(cliente.telefono);
+    return `<tr>
+        <td class='nome_cliente'>${nome}</td>
+        <td>${telefono}</td>
+        <td style="width: 6% !important;"><button class='btn btn-sm btn-secondary modifica_cliente' data-id="${id}" data-nome="${nome}" data-telefono="${telefono}">Modifica</button></td>
     </tr>`;
-    }).join('');
 }
 
-function getDateSortKey(dateValue) {
-    if (!dateValue || typeof dateValue !== 'string') {
-        return '';
-    }
-    const parts = dateValue.split('-');
-    if (parts.length !== 3) {
-        return '';
-    }
-    return escapeHtml(`${parts[2]}${parts[1]}${parts[0]}`);
+function buildProdottoRow(prodotto) {
+    return `<tr>
+        <td class='nome_prodotto'>${escapeHtml(prodotto.descrizione)}</td>
+        <td>${escapeHtml(testoPrezzo(prodotto))}</td>
+    </tr>`;
 }
 
-function popolaTabellaPrezzi() {
-    const prodotti = window.myAPI.getElencoProdotti();
-    return prodotti.map(prodotto => {
-        const simbolo_euro = Number.isFinite(parsePrezzo(prodotto.prezzo)) ? '€' : '';
-        const id = escapeHtml(prodotto.id);
-        const descrizione = escapeHtml(prodotto.descrizione);
-        const prezzo = escapeHtml(prodotto.prezzo);
-        return `<tr>
-            <td class='nome_prodotto' data-id="${id}" data-nome="${descrizione}">${descrizione}</td>
-            <td class="edit_prezzo_prodotto" id="${id}" data-id="${id}" data-prezzo="${prezzo}">${prezzo} ${simbolo_euro}</td>
-        </tr>`;
-    }).join('');
-}
-
-function cercaProdotto(descrizione) {
-    return window.myAPI.getProdottoByDescrizione(descrizione);
-}
-
-function inserisciProdotto(prodotto) {
-    window.myAPI.putProdotto(prodotto);
-}
-
-function eliminaOrdine(id_ordine, year) {
-    window.myAPI.eliminaOrdine(id_ordine, year);
-}
-
-function getOrdineDaModificare(id_ordine, year) {
-    return window.myAPI.getOrdineById(id_ordine, year);
-}
-
-function modificaOrdineFunction(where, set, year) {
-    window.myAPI.modificaOrdine(where, set, year);
-}
-
-function getOrdineAnnullaConsegna(id_ordine, year) {
-    return window.myAPI.getOrdineChiusoById(id_ordine, year);
-}
-
-function eliminaOrdineChiuso(id_ordine, year) {
-    window.myAPI.eliminaOrdineChiuso(id_ordine, year);
-}
-
-function modificaClienteFunction(where, set) {
-    window.myAPI.modificaCliente(where, set);
-}
+// ── Navigazione ─────────────────────────────────────────────────────────────
 
 function htmlSelectAnno(id, anno_selezionato) {
     let html = `<select id="${id}" class="seleziona_anno ms-2 form-select w-auto">`;
@@ -249,56 +172,66 @@ function renderToolbarOrdini() {
     $('#div_bottone_aggiungi').html(html);
 }
 
-function cambiaPagina(nuova_pagina, url) {
-    $('#table_div').empty();
-    $('.loader').parent().removeClass('d-none');
+function mostraLoaderPagina(visibile) {
+    $('#main_loader').parent().toggleClass('d-none', !visibile);
+}
 
-    $('.sidebar_link').parent().removeClass("active-tab");
-    $('.sidebar_link').removeClass("active");
+function mostraErrorePagina(error) {
+    console.error(error);
+    $('#alert_feedback').removeClass('d-none alert-success').addClass('alert-danger').text('Errore: ' + error.message);
+}
 
-    $('.' + nuova_pagina).addClass('active');
-    $('.' + nuova_pagina).parent().addClass('active-tab');
+const PAGINE = {
+    ordini: {
+        sidebar: 'sidebar_dashboard',
+        titolo: 'Ordini',
+        toolbar: renderToolbarOrdini,
+        tabella: () => create_data_table_ordini('aperti')
+    },
+    ordini_chiusi: {
+        sidebar: 'sidebar_ordini_chiusi',
+        titolo: 'Ordini consegnati',
+        toolbar: () => $('#div_bottone_aggiungi').html(htmlSelectAnno('seleziona_anno_chiuso', selected_year_close)),
+        tabella: () => create_data_table_ordini('consegnati')
+    },
+    prezzi: {
+        sidebar: 'sidebar_prezzi',
+        titolo: 'Prezzi',
+        toolbar: () => $('#div_bottone_aggiungi').html(`<button type="button" class="btn btn-primary btn_nuovo_prodotto"><i class="fa-solid fa-plus-circle"></i> Articolo</button>`),
+        tabella: create_data_table_prezzi
+    },
+    clienti: {
+        sidebar: 'sidebar_clienti',
+        titolo: 'Clienti',
+        toolbar: () => $('#div_bottone_aggiungi').html(`<button type="button" class="btn btn-primary btn_nuovo_cliente"><i class="fa-solid fa-plus-circle"></i> Cliente</button>`),
+        tabella: create_data_table_clienti
+    }
+};
 
-    if (url == 'ordini') {
-        sidebar_attiva = 'sidebar_dashboard';
-    } else if (url == 'clienti') {
-        sidebar_attiva = 'sidebar_clienti';
-    } else if (url == 'prezzi') {
-        sidebar_attiva = 'sidebar_prezzi';
-    } else if (url == 'ordini_chiusi') {
-        sidebar_attiva = 'sidebar_ordini_chiusi';
-    } else {
-        sidebar_attiva = nuova_pagina;
+async function cambiaPagina(nuova_pagina, url) {
+    const pagina = PAGINE[url];
+    if (!pagina) {
+        return;
     }
 
-    setTimeout(function() {
-        switch (url) {
-            case 'ordini':
-                $('.page_title').html('Ordini');
-                renderToolbarOrdini();
-                create_data_table_ordini(0);
-                break;
+    distruggiTabella();
+    $('#alert_feedback').addClass('d-none');
+    mostraLoaderPagina(true);
 
-            case 'ordini_chiusi':
-                $('.page_title').html('Ordini consegnati');
-                $('#div_bottone_aggiungi').html(htmlSelectAnno('seleziona_anno_chiuso', selected_year_close));
-                create_data_table_ordini_chiusi(1);
-                break;
+    $('.sidebar_link').removeClass('active').parent().removeClass('active-tab');
+    $('.' + nuova_pagina).addClass('active').parent().addClass('active-tab');
 
-            case 'prezzi':
-                create_data_table_prezzi();
-                $('.page_title').html('Prezzi');
-                $('#div_bottone_aggiungi').html(`<button type="button" class="btn btn-primary btn_nuovo_prodotto"><i class="fa-solid fa-plus-circle"></i> Articolo</button>`);
-                break;
+    sidebar_attiva = pagina.sidebar;
+    $('.page_title').text(pagina.titolo);
+    pagina.toolbar();
 
-            case 'clienti':
-                create_data_table_clienti();
-                $('.page_title').html('Clienti');
-                $('#div_bottone_aggiungi').html(`<button type="button" class="btn btn-primary btn_nuovo_cliente"><i class="fa-solid fa-plus-circle"></i> Cliente</button>`);
-                break;
-        }
-        $('.loader').parent().addClass('d-none');
-    }, 100);
+    try {
+        await pagina.tabella();
+    } catch (error) {
+        mostraErrorePagina(error);
+    } finally {
+        mostraLoaderPagina(false);
+    }
 }
 
 $(document).on('click', '.sidebar_link', function(e) {
@@ -310,6 +243,43 @@ $(document).on('click', '.btn_nuovo_ordine', function() { apriModaleNuovoOrdine(
 $(document).on('click', '.btn_nuovo_prodotto', function() { apriModaleNuovoProdotto(); });
 $(document).on('click', '.btn_nuovo_cliente', function() { apriModaleNuovoCliente(); });
 
+async function cambiaAnno(impostaAnno, vista) {
+    distruggiTabella();
+    mostraLoaderPagina(true);
+    impostaAnno();
+    try {
+        await create_data_table_ordini(vista);
+    } catch (error) {
+        mostraErrorePagina(error);
+    } finally {
+        mostraLoaderPagina(false);
+    }
+}
+
+$(document).on('change', '#seleziona_anno', function() {
+    const anno = $(this).val();
+    cambiaAnno(() => { selected_year = anno; }, 'aperti');
+});
+
+$(document).on('change', '#seleziona_anno_chiuso', function() {
+    const anno = $(this).val();
+    cambiaAnno(() => { selected_year_close = anno; }, 'consegnati');
+});
+
+// ── Plugin (datepicker, select2) ────────────────────────────────────────────
+
+const OPZIONI_SELECT2 = {
+    theme: 'bootstrap-5',
+    width: '100%',
+    placeholder: '',
+    minimumResultsForSearch: 5,
+    allowClear: true
+};
+
+function inizializzaSelect2($select, $parent) {
+    $select.select2({ ...OPZIONI_SELECT2, dropdownParent: $parent, matcher: matchStart });
+}
+
 function inizializza_elementi() {
     $('.js-datepicker').datepicker({
         format: "dd-mm-yyyy",
@@ -320,41 +290,10 @@ function inizializza_elementi() {
         todayHighlight: true
     });
 
-    $('.select_clienti').select2({
-        dropdownParent: $('#aggiungi_ordine_modal'),
-        theme: "bootstrap",
-        placeholder: '',
-        minimumResultsForSearch: 5,
-        matcher: matchStart,
-        allowClear: true
-    });
-
-    $('.select_prodotti').select2({
-        dropdownParent: $('#aggiungi_ordine_modal'),
-        theme: "bootstrap",
-        placeholder: '',
-        minimumResultsForSearch: 5,
-        matcher: matchStart,
-        allowClear: true
-    });
-
-    $('.select_clienti_modifica_ordine').select2({
-        dropdownParent: $('#modifica_ordine_modal'),
-        theme: "bootstrap",
-        placeholder: '',
-        minimumResultsForSearch: 5,
-        matcher: matchStart,
-        allowClear: true
-    });
-
-    $('.select_prodotti_modifica_ordine').select2({
-        dropdownParent: $('#modifica_ordine_modal'),
-        theme: "bootstrap",
-        placeholder: '',
-        minimumResultsForSearch: 5,
-        matcher: matchStart,
-        allowClear: true
-    });
+    inizializzaSelect2($('.select_clienti'), $('#aggiungi_ordine_modal'));
+    inizializzaSelect2($('.select_prodotti'), $('#aggiungi_ordine_modal'));
+    inizializzaSelect2($('.select_clienti_modifica_ordine'), $('#modifica_ordine_modal'));
+    inizializzaSelect2($('.select_prodotti_modifica_ordine'), $('#modifica_ordine_modal'));
 }
 
 function matchStart(params, data) {
@@ -384,29 +323,3 @@ function matchStart(params, data) {
     }
     return null;
 }
-
-$(document).on('change', '#seleziona_anno', function() {
-    $('.loader').parent().removeClass('d-none');
-    $('#table_div').empty();
-    selected_year = $(this).val();
-    setTimeout(function() {
-        create_data_table_ordini(0);
-        $('.loader').parent().addClass('d-none');
-    }, 100);
-});
-
-$(document).on('change', '#seleziona_anno_chiuso', function() {
-    $('.loader').parent().removeClass('d-none');
-    $('#table_div').empty();
-    selected_year_close = $(this).val();
-    setTimeout(function() {
-        create_data_table_ordini_chiusi(1);
-        $('.loader').parent().addClass('d-none');
-    }, 100);
-});
-
-// Secondo campo di ricerca, basato esclusivamente sulla data di ritiro prevista.
-// Usa la tabella corrente (#table), valida sia nella scheda Ordini che Consegnati.
-$(document).on("keyup", "#search_column", function() {
-    $('#table').DataTable().column(7).search(this.value).draw();
-});
