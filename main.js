@@ -1,7 +1,7 @@
 const { app, BrowserWindow, ipcMain, Menu, dialog, shell } = require('electron');
 const path = require('path');
 
-const { LEGACY_DB_PATH, resolvePaths } = require('./app.config');
+const { resolvePaths } = require('./app.config');
 const { apriDatabase, backupGiornaliero, creaBackup, timestamp } = require('./database');
 const { createRepository, ErroreValidazione, METODI_PUBBLICI } = require('./repository');
 
@@ -15,7 +15,7 @@ function createWindow() {
         width: 1200,
         height: 800,
         show: false,
-        icon: path.join(__dirname, 'img', 'logo_trim.png'),
+        icon: path.join(__dirname, 'img', process.platform === 'win32' ? 'icon.ico' : 'icon.png'),
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
@@ -112,11 +112,7 @@ async function avvia() {
     const paths = resolvePaths(app.getPath('userData'));
 
     try {
-        database = await apriDatabase({
-            dbPath: paths.DB_PATH,
-            backupDir: paths.BACKUP_DIR,
-            legacyDbPath: LEGACY_DB_PATH
-        });
+        database = await apriDatabase({ dbPath: paths.DB_PATH, backupDir: paths.BACKUP_DIR });
     } catch (error) {
         console.error('Apertura database non riuscita:', error);
         dialog.showErrorBox('Impossibile aprire il database', `${error.message}\n\nPercorso: ${paths.DB_PATH}`);
@@ -124,12 +120,9 @@ async function avvia() {
         return;
     }
 
-    if (database.importato) {
-        console.log(`Database importato da ${LEGACY_DB_PATH} in ${paths.DB_PATH}`);
-    }
-    if (database.reportMigrazione) {
-        console.log('Migrazione schema completata:', JSON.stringify(database.reportMigrazione, null, 2));
-        console.log('Backup pre-migrazione:', database.backupPreMigrazione);
+    if (database.migrazioni.length) {
+        console.log(`Schema del database aggiornato (migrazioni ${database.migrazioni.join(', ')})`);
+        if (database.backupPreMigrazione) console.log('Backup pre-migrazione:', database.backupPreMigrazione);
     }
 
     registraIpc(createRepository(database.db));

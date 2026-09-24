@@ -151,13 +151,15 @@ async function create_data_table_prezzi() {
 
     distruggiTabella();
     $('#table_div').html(htmlTabella('table-prezzi', `
-        <th style="width: 60%;">Descrizione</th>
-        <th style="width: 40%;">Prezzo</th>
+        <th style="width: 55%;">Descrizione</th>
+        <th style="width: 30%;">Prezzo</th>
+        <th style="width: 15%;"></th>
     `));
     $('#table_tbody').html(prodotti.map(buildProdottoRow).join(''));
 
     $('#table').DataTable({
         ...OPZIONI_DATATABLE,
+        columnDefs: [{ orderable: false, searchable: false, targets: -1 }],
         order: [[0, "asc"]]
     });
 }

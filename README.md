@@ -52,21 +52,27 @@ Tutti i backup usano l'API di backup di SQLite: la copia è coerente anche con l
 Per ripristinare un backup: chiudere l'app e sostituire `lavasecco.sqlite3` con il file di backup
 (eliminando eventuali `lavasecco.sqlite3-wal` / `-shm` accanto).
 
-## Aggiornamento dalle versioni 1.x
+## Prezzi e listino
 
-Al primo avvio della versione 2:
+Ogni ordine salva il prezzo unitario del listino nel momento in cui viene inserito: modificare il prezzo
+di un articolo (pagina **Prezzi → Modifica**) vale solo per i nuovi ordini, i totali di quelli esistenti
+non cambiano. Se in un ordine si cambia il prodotto, l'ordine prende il prezzo di listino del nuovo prodotto.
 
-1. Se il database esiste solo nella vecchia posizione (`str/extraResources/lavasecco.sqlite3`, nella
-   cartella del progetto) viene copiato nella cartella dati dell'utente; l'originale viene rinominato
-   in `lavasecco.sqlite3.spostato-<data>` e non viene cancellato.
-2. Prima di modificare lo schema viene salvato un backup completo in `dati/backups/pre-migrazione-v1-<data>.sqlite3`.
-3. Le tabelle `ordini_<anno>` e `ordini_chiusi_<anno>` vengono unite in un'unica tabella `ordini`
-   (ogni ordine mantiene il suo id anche quando viene consegnato), le date passano al formato ISO,
-   i prezzi in centesimi e il telefono dei clienti nella colonna `telefono`.
-   Il riepilogo della migrazione è salvato in `app_meta` (chiave `migrazione_v1`).
+Un articolo si può eliminare solo se non è mai stato usato in un ordine.
 
-L'importazione dei vecchi file JSON (versioni precedenti a SQLite) non è più supportata:
-per dati così vecchi passare prima da una versione 1.x.
+## Schema del database e aggiornamenti
+
+Lo schema è versionato con `PRAGMA user_version`; le migrazioni sono in `MIGRAZIONI` in [database.js](database.js)
+e vengono applicate automaticamente all'avvio. Prima di aggiornare un database esistente viene salvato
+un backup completo in `dati/backups/pre-migrazione-v<versione>-<data>.sqlite3`.
+
+| Versione | Contenuto |
+|----------|-----------|
+| 1 | Tabella `ordini` unica (versione 2.0 dell'app) |
+| 2 | Prezzo salvato nell'ordine (`prezzo_unitario_cent`, `nota_prezzo`) e indici su cliente/prodotto |
+
+I database delle versioni 1.x dell'app (tabelle `ordini_<anno>`) non vengono più convertiti:
+vanno aperti prima con la versione 2.0.
 
 ## Struttura
 
@@ -86,9 +92,11 @@ per dati così vecchi passare prima da una versione 1.x.
 ## Packaging
 
 ```
-npm run package
-npm run make
+npm run package   # app pronta da avviare in out/Lavasecco-win32-x64/
+npm run make      # installer in out/make/ (su Windows: Squirrel, Setup.exe)
 ```
+
+L'icona (`img/icon.ico`, `img/icon.png`) si rigenera con `npx electron scripts/crea-icona.js`.
 
 ## Sicurezza
 

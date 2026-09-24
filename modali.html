@@ -141,6 +141,9 @@
                         <input type="text" id="prezzo_nuovo_articolo" class="form-control" placeholder="es. 7,50 (vuoto = a vista)">
                     </div>
                 </div>
+                <p class="text-muted small mt-3 mb-0 d-none" id="nota_modifica_prezzo">
+                    Il nuovo prezzo vale per gli ordini inseriti da ora in poi: gli ordini già registrati mantengono il prezzo con cui sono stati inseriti.
+                </p>
                 <div class="alert alert-danger d-none mt-3 mb-0 errore-modale" role="alert"></div>
             </div>
             <div class="modal-footer">
@@ -260,6 +263,26 @@
                 <div class="loader_modal_conferma_quantita_confermata d-none"></div>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
                 <button id="conferma_quantita_consegnata" type="button" class="btn btn-success">Conferma</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modale di conferma eliminazione articolo -->
+<div class="modal fade" id="elimina_prodotto_modal" tabindex="-1" role="dialog" aria-labelledby="modal_title_elimina_prodotto">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modal_title_elimina_prodotto">Elimina articolo</h5>
+                <button type="button" class="btn-close btn-close-white" aria-label="Chiudi" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">Sei sicuro di voler eliminare l'articolo <strong id="descrizione_elimina_prodotto"></strong>? L'operazione non è reversibile.</p>
+                <div class="alert alert-danger d-none mt-3 mb-0 errore-modale" role="alert"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                <button id="conferma_elimina_prodotto" type="button" class="btn btn-danger">Elimina</button>
             </div>
         </div>
     </div>

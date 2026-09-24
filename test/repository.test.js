@@ -46,9 +46,56 @@ test('prodotti: prezzo in centesimi, "a vista" come nota, descrizione univoca', 
     repo.salvaProdotto({ descrizione: 'Tappeto', prezzo: 'a peso' });
     repo.salvaProdotto({ descrizione: 'Borsa', prezzo: '' });
     assert.throws(() => repo.salvaProdotto({ descrizione: 'giacca', prezzo: '1' }), erroreCon('duplicato'));
-    assert.deepEqual(repo.getProdotti().map((p) => [p.descrizione, p.prezzo_cent, p.nota_prezzo]), [
-        ['Borsa', null, ''], ['Giacca', 750, ''], ['Tappeto', null, 'a peso']
+    assert.deepEqual(repo.getProdotti().map((p) => [p.descrizione, p.prezzo_cent, p.nota_prezzo, p.ordini]), [
+        ['Borsa', null, '', 0], ['Giacca', 750, '', 0], ['Tappeto', null, 'a peso', 0]
     ]);
+});
+
+test('modifica articolo: descrizione e prezzo, duplicati rifiutati, se stesso ammesso', () => {
+    const giacca = repo.salvaProdotto({ descrizione: 'Giacca', prezzo: '7,50' });
+    repo.salvaProdotto({ descrizione: 'Borsa', prezzo: '' });
+    assert.throws(() => repo.salvaProdotto({ id: giacca, descrizione: 'borsa', prezzo: '1' }), erroreCon('duplicato', 'descrizione'));
+    assert.throws(() => repo.salvaProdotto({ id: 999, descrizione: 'X', prezzo: '1' }), erroreCon('non_trovato'));
+    assert.equal(repo.salvaProdotto({ id: giacca, descrizione: 'Giacca', prezzo: '8' }), giacca);
+    assert.equal(repo.salvaProdotto({ id: giacca, descrizione: 'Giacca lunga', prezzo: 'a vista' }), giacca);
+    const modificata = repo.getProdotti().find((p) => p.id === giacca);
+    assert.deepEqual([modificata.descrizione, modificata.prezzo_cent, modificata.nota_prezzo], ['Giacca lunga', null, 'a vista']);
+});
+
+test('il prezzo resta quello registrato nell\'ordine anche se cambia il listino', () => {
+    const { id, cliente_id, prodotto_id } = nuovoOrdine(2);
+    assert.equal(repo.getOrdine(id).prezzo_unitario_cent, 750);
+
+    repo.salvaProdotto({ id: prodotto_id, descrizione: 'Giacca', prezzo: '9,00' });
+    assert.equal(repo.getOrdine(id).prezzo_unitario_cent, 750);
+
+    // Modificando l'ordine senza cambiare prodotto il prezzo non cambia...
+    const campi = { cliente_id, prodotto_id, quantita: 3, data_consegna: '2026-09-24' };
+    assert.equal(repo.modificaOrdine(id, campi).prezzo_unitario_cent, 750);
+
+    // ...cambiando prodotto prende il prezzo di listino del nuovo prodotto
+    const tappeto = repo.salvaProdotto({ descrizione: 'Tappeto', prezzo: 'a peso' });
+    const conTappeto = repo.modificaOrdine(id, { ...campi, prodotto_id: tappeto });
+    assert.equal(conTappeto.prezzo_unitario_cent, null);
+    assert.equal(conTappeto.nota_prezzo, 'a peso');
+
+    // I nuovi ordini usano il listino attuale
+    const [nuovo] = repo.creaOrdini([{ cliente_id, prodotto_id, quantita: 1, data_consegna: '2026-09-24' }]);
+    assert.equal(repo.getOrdine(nuovo).prezzo_unitario_cent, 900);
+});
+
+test('elimina articolo: solo se non usato in nessun ordine', () => {
+    const { id, prodotto_id } = nuovoOrdine(1);
+    const libero = repo.salvaProdotto({ descrizione: 'Borsa', prezzo: '' });
+
+    assert.equal(repo.getProdotti().find((p) => p.id === prodotto_id).ordini, 1);
+    assert.throws(() => repo.eliminaProdotto(prodotto_id), erroreCon('in_uso'));
+    assert.equal(repo.eliminaProdotto(libero), true);
+    assert.throws(() => repo.eliminaProdotto(libero), erroreCon('non_trovato'));
+
+    repo.eliminaOrdine(id);
+    assert.equal(repo.eliminaProdotto(prodotto_id), true);
+    assert.deepEqual(repo.getProdotti(), []);
 });
 
 test('creaOrdini è atomico: se una riga non è valida non viene inserito nulla', () => {
@@ -121,7 +168,7 @@ test('getOrdini filtra per anno e include nome cliente e prodotto', () => {
     assert.equal(riga.id, id);
     assert.equal(riga.cliente_nome, 'Mario');
     assert.equal(riga.prodotto_descrizione, 'Giacca');
-    assert.equal(riga.prezzo_cent, 750);
+    assert.equal(riga.prezzo_unitario_cent, 750);
 });
 
 test('eliminaOrdine', () => {

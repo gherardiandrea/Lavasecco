@@ -12,12 +12,17 @@ const INCLUSI = [
 module.exports = {
     packagerConfig: {
         asar: true,
+        // Senza estensione: il packager usa icon.ico su Windows e icon.png altrove (generate da scripts/crea-icona.js)
+        icon: 'img/icon',
         ignore: (percorso) => percorso !== '' && !INCLUSI.some((re) => re.test(percorso))
     },
     makers: [
         {
             name: '@electron-forge/maker-squirrel',
-            config: { name: 'lavasecco' }
+            config: {
+                name: 'lavasecco',
+                setupIcon: 'img/icon.ico'
+            }
         },
         {
             name: '@electron-forge/maker-zip',

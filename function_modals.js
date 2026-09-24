@@ -224,26 +224,64 @@ $(document).on("click", "#conferma_modifica_cliente", function(){
 
 // ── Prodotti ────────────────────────────────────────────────────────────────
 
-function apriModaleNuovoProdotto(){
+// La stessa modale serve per nuovo articolo (senza id) e modifica (con id)
+function apriModaleProdotto({ id = '', descrizione = '', prezzo = '' } = {}) {
+    const modifica = id !== '';
     nascondiErroreModale($('#nuovo_prodotto_modal'));
-    $('#descrizione_nuovo_articolo').val('');
-    $('#prezzo_nuovo_articolo').val('');
+    $('#modal_title_nuovo_prodotto').text(modifica ? 'Modifica articolo' : 'Nuovo articolo');
+    $('#nota_modifica_prezzo').toggleClass('d-none', !modifica);
+    $('#descrizione_nuovo_articolo').val(descrizione);
+    $('#prezzo_nuovo_articolo').val(prezzo);
+    $('#conferma_aggiunta_prodotto').attr('data-id', id);
 
     $('#nuovo_prodotto_modal').modal('show');
 }
 
+function apriModaleNuovoProdotto(){
+    apriModaleProdotto();
+}
+
+$(document).on("click", ".modifica_prodotto", function(){
+    apriModaleProdotto({
+        id: $(this).attr('data-id'),
+        descrizione: $(this).attr('data-descrizione'),
+        prezzo: $(this).attr('data-prezzo')
+    });
+});
+
+async function dopoModificaProdotti() {
+    if (sidebar_attiva == "sidebar_prezzi") {
+        await create_data_table_prezzi();
+    }
+    await popolaSelectProdotti();
+}
+
 $(document).on("click", "#conferma_aggiunta_prodotto", function(){
+    const id = $(this).attr('data-id') || null;
     eseguiConLoader({
         modale: '#nuovo_prodotto_modal',
         bottone: '#conferma_aggiunta_prodotto',
         campi: { descrizione: '#descrizione_nuovo_articolo' }
     }, async function() {
-        await api('salvaProdotto', { descrizione: $('#descrizione_nuovo_articolo').val(), prezzo: $('#prezzo_nuovo_articolo').val() });
+        await api('salvaProdotto', { id, descrizione: $('#descrizione_nuovo_articolo').val(), prezzo: $('#prezzo_nuovo_articolo').val() });
         $('#nuovo_prodotto_modal').modal('hide');
-        if (sidebar_attiva == "sidebar_prezzi") {
-            await create_data_table_prezzi();
-        }
-        await popolaSelectProdotti();
+        await dopoModificaProdotti();
+    });
+});
+
+$(document).on("click", ".elimina_prodotto", function(){
+    nascondiErroreModale($('#elimina_prodotto_modal'));
+    $('#descrizione_elimina_prodotto').text($(this).attr('data-descrizione'));
+    $('#conferma_elimina_prodotto').attr('data-id', $(this).attr('data-id'));
+    $('#elimina_prodotto_modal').modal('show');
+});
+
+$(document).on("click", "#conferma_elimina_prodotto", function(){
+    const id = $(this).attr('data-id');
+    eseguiConLoader({ modale: '#elimina_prodotto_modal', bottone: '#conferma_elimina_prodotto' }, async function() {
+        await api('eliminaProdotto', id);
+        $('#elimina_prodotto_modal').modal('hide');
+        await dopoModificaProdotti();
     });
 });
 

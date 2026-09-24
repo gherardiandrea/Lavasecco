@@ -3,9 +3,6 @@ const path = require('path');
 
 const APP_NAME = 'Lavasecco';
 
-// Vecchia posizione del database (versioni <= 1.x): dentro la cartella del progetto.
-const LEGACY_DB_PATH = path.join(__dirname, 'str', 'extraResources', 'lavasecco.sqlite3');
-
 // Stessa cartella che Electron restituisce con app.getPath('userData'),
 // calcolata a mano per gli script che girano fuori da Electron (es. backup-db).
 function defaultUserDataDir() {
@@ -31,7 +28,6 @@ function resolvePaths(userDataDir = defaultUserDataDir()) {
 
 module.exports = {
     APP_NAME,
-    LEGACY_DB_PATH,
     defaultUserDataDir,
     resolvePaths
 };

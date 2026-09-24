@@ -43,6 +43,14 @@ function testoPrezzo(prodotto) {
     return prodotto.nota_prezzo || 'a vista';
 }
 
+// Prezzo come va scritto nel campo del form ("7,50", "a peso", vuoto = a vista)
+function prezzoPerInput(prodotto) {
+    if (prodotto.prezzo_cent != null) {
+        return (prodotto.prezzo_cent / 100).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false });
+    }
+    return prodotto.nota_prezzo || '';
+}
+
 function maiuscolaIniziale(testo) {
     return testo.charAt(0).toUpperCase() + testo.slice(1);
 }
@@ -125,7 +133,10 @@ function buildOrdineRow(ordine) {
     const pos = ordine.posizione || '';
     html += pos && !consegnato ? cellaTroncata(pos, descrizione.length > 50 ? 20 : 50) : `<td></td>`;
 
-    const totale = ordine.prezzo_cent != null ? formatEuro(ordine.prezzo_cent * ordine.quantita) : maiuscolaIniziale(ordine.nota_prezzo || 'a vista');
+    // Prezzo salvato nell'ordine al momento della registrazione (non il listino attuale)
+    const totale = ordine.prezzo_unitario_cent != null
+        ? formatEuro(ordine.prezzo_unitario_cent * ordine.quantita)
+        : maiuscolaIniziale(ordine.nota_prezzo || 'a vista');
     html += `<td>${escapeHtml(totale)}</td>`;
 
     if (consegnato) {
@@ -150,9 +161,17 @@ function buildClienteRow(cliente) {
 }
 
 function buildProdottoRow(prodotto) {
+    const id = escapeHtml(prodotto.id);
+    // Gli articoli usati in qualche ordine non si possono eliminare: il bottone resta visibile ma disattivato
+    const inUso = prodotto.ordini > 0;
+    const titoloElimina = inUso ? `Usato in ${prodotto.ordini} ${prodotto.ordini === 1 ? 'ordine' : 'ordini'}: non eliminabile` : 'Elimina';
     return `<tr>
         <td class='nome_prodotto'>${escapeHtml(prodotto.descrizione)}</td>
         <td>${escapeHtml(testoPrezzo(prodotto))}</td>
+        <td class="text-nowrap">
+            <button class='btn btn-sm btn-secondary modifica_prodotto' data-id="${id}" data-descrizione="${escapeHtml(prodotto.descrizione)}" data-prezzo="${escapeHtml(prezzoPerInput(prodotto))}">Modifica</button>
+            <span title="${escapeHtml(titoloElimina)}"><button class='btn btn-sm btn-danger elimina_prodotto' data-id="${id}" data-descrizione="${escapeHtml(prodotto.descrizione)}"${inUso ? ' disabled' : ''}><i class="fas fa-trash"></i></button></span>
+        </td>
     </tr>`;
 }
 
