@@ -126,42 +126,6 @@ $('#cerca-globale').on('keydown', function (e) {
 
 // ── Pagina "Oggi" ───────────────────────────────────────────────────────────
 
-function saluto() {
-    const ora = new Date().getHours();
-    if (ora < 13) return 'Buongiorno';
-    if (ora < 18) return 'Buon pomeriggio';
-    return 'Buonasera';
-}
-
-function htmlRitiroOggi(o) {
-    const resto = o.quantita - o.quantita_consegnata;
-    const importo = o.prezzo_unitario_cent != null ? formatEuro(o.prezzo_unitario_cent * o.quantita) : maiuscolaIniziale(o.nota_prezzo || 'a vista');
-    return `<div class="riga-oggi" id="oggi_${o.id}">
-        <span class="tag">${numeroOrdine(o.id)}</span>
-        <div class="chi"><b>${escapeHtml(o.cliente_nome)}</b><span>${escapeHtml(o.cliente_telefono || 'nessun telefono')}</span>
-            <div class="capi">${resto} × ${escapeHtml(o.prodotto_descrizione)}${o.quantita_consegnata ? ` <span class="badge-app oro">${o.quantita_consegnata} già consegnati</span>` : ''}</div></div>
-        ${o.posizione ? `<span class="pos"><i class="fa-solid fa-location-dot"></i> ${escapeHtml(o.posizione)}</span>` : '<span></span>'}
-        <div class="fine-riga"><span class="importo num${o.prezzo_unitario_cent == null ? ' senza-prezzo' : ''}">${escapeHtml(importo)}</span>${bottoneConsegna(o)}</div>
-    </div>`;
-}
-
-// Durata compatta per il riquadro del ritardo: giorni, poi mesi, poi anni
-function durataRitardo(giorni) {
-    if (giorni < 60) return { n: giorni, unita: giorni === 1 ? 'giorno' : 'giorni' };
-    if (giorni < 730) return { n: Math.floor(giorni / 30), unita: 'mesi' };
-    return { n: Math.floor(giorni / 365), unita: 'anni' };
-}
-
-function htmlRitardo(o) {
-    const giorni = -giorniDaOggi(o.data_ritiro_prevista);
-    const durata = durataRitardo(giorni);
-    return `<div class="riga-ritardo" id="ritardo_${o.id}">
-        <div class="giorni num" title="Ritiro previsto ${escapeHtml(dataBreve(o.data_ritiro_prevista))}">${durata.n}<small>${durata.unita}</small></div>
-        <div class="chi"><b>${escapeHtml(o.cliente_nome)}</b><span>${escapeHtml(o.prodotto_descrizione)}${o.posizione ? ` · ${escapeHtml(o.posizione)}` : ''}${o.cliente_telefono ? ` · ${escapeHtml(o.cliente_telefono)}` : ''}</span></div>
-        ${bottoneConsegna(o, true)}
-    </div>`;
-}
-
 function disegnaOggi(r) {
     $('#saluto').text(saluto());
     const partiSottotitolo = [

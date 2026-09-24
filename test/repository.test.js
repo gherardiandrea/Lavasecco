@@ -255,3 +255,16 @@ test('clienti con il numero di ordini aperti', () => {
     assert.deepEqual(repo.getClienti().map((c) => [c.nome, c.ordini_aperti]), [['Mario', 2], ['Senza ordini', 0]]);
     assert.equal(repo.cercaClienti('mar')[0].ordini_aperti, 2);
 });
+
+test('casi limite: cliente inesistente, ordine senza righe, stato del backup', () => {
+    assert.throws(() => repo.salvaCliente({ id: 999, nome: 'Nessuno', telefono: '' }), erroreCon('non_trovato'));
+    assert.throws(() => repo.creaOrdini([]), erroreCon('valore_mancante'));
+    assert.throws(() => repo.creaOrdini(null), erroreCon('valore_mancante'));
+
+    const { setMeta } = require('../database');
+    assert.deepEqual(repo.getInfoBackup(), { ultimo: null });
+    setMeta(db, 'last_backup_date', '2026-09-23');
+    assert.deepEqual(repo.getInfoBackup(), { ultimo: '2026-09-23' });
+    setMeta(db, 'last_backup_at', '2026-09-24T07:12:00.000Z');
+    assert.deepEqual(repo.getInfoBackup(), { ultimo: '2026-09-24T07:12:00.000Z' });
+});

@@ -110,3 +110,49 @@ test('backup giornaliero: uno al giorno', async () => {
     assert.equal(await backupGiornaliero(db, backupDir, 30), null);
     db.close();
 });
+
+test('pulizia dei backup: elimina solo i backup giornalieri più vecchi della retention', () => {
+    const { pruneOldBackups } = require('../database');
+    const dir = tmpDir();
+    const giorniFa = (n) => (Date.now() - n * 24 * 60 * 60 * 1000) / 1000;
+    const crea = (nome, eta) => {
+        const p = path.join(dir, nome);
+        fs.writeFileSync(p, 'x');
+        fs.utimesSync(p, giorniFa(eta), giorniFa(eta));
+        return nome;
+    };
+    const vecchio = crea('lavasecco-backup-20260801-090000.sqlite3', 40);
+    const recente = crea('lavasecco-backup-20260920-090000.sqlite3', 4);
+    const preMigrazione = crea('pre-migrazione-v2-20260101-090000.sqlite3', 200);
+    const esportato = crea('copia-per-chiavetta.sqlite3', 200);
+    const simile = crea('lavasecco-backup-20260101.sqlite3', 200);
+    fs.mkdirSync(path.join(dir, 'lavasecco-backup-20260101-090000.sqlite3')); // una cartella con lo stesso nome non va toccata
+
+    pruneOldBackups(dir, 30);
+    const rimasti = fs.readdirSync(dir).sort();
+    assert.equal(rimasti.includes(vecchio), false);
+    for (const nome of [recente, preMigrazione, esportato, simile, 'lavasecco-backup-20260101-090000.sqlite3']) {
+        assert.ok(rimasti.includes(nome), nome);
+    }
+
+    // Retention minima 1 giorno anche se configurata a 0; cartella mancante: nessun errore
+    pruneOldBackups(dir, 0);
+    assert.equal(fs.readdirSync(dir).includes(recente), false);
+    pruneOldBackups(path.join(dir, 'non-esiste'), 30);
+});
+
+test('transazioni annidate: la transazione interna riusa quella esterna', async () => {
+    const { transaction } = require('../database');
+    const dir = tmpDir();
+    const { db } = await apriDatabase({ dbPath: path.join(dir, 'x.sqlite3'), backupDir: path.join(dir, 'b') });
+    db.exec('CREATE TABLE t (v INTEGER)');
+    assert.throws(() => transaction(db, () => {
+        db.prepare('INSERT INTO t VALUES (1)').run();
+        transaction(db, () => db.prepare('INSERT INTO t VALUES (2)').run());
+        throw new Error('annulla tutto');
+    }), /annulla tutto/);
+    // Il rollback esterno annulla anche quanto fatto dentro la transazione interna
+    assert.equal(db.prepare('SELECT COUNT(*) AS n FROM t').get().n, 0);
+    assert.equal(db.isTransaction, false);
+    db.close();
+});

@@ -3,7 +3,8 @@ const path = require('path');
 
 const { resolvePaths } = require('./app.config');
 const { apriDatabase, backupGiornaliero, creaBackup, timestamp } = require('./database');
-const { createRepository, ErroreValidazione, METODI_PUBBLICI } = require('./repository');
+const { createRepository, METODI_PUBBLICI } = require('./repository');
+const { creaGestoreDb, creaGestoreAzione } = require('./ipc');
 
 const INDEX_PATH = path.join(__dirname, 'index.html');
 
@@ -45,39 +46,10 @@ function createWindow() {
 }
 
 function registraIpc(repository) {
-    const metodi = new Set(METODI_PUBBLICI);
-
-    // Unico canale: { ok: true, dati } oppure { ok: false, errore: { codice, messaggio, campo } }
-    ipcMain.handle('db', (event, metodo, ...args) => {
-        if (!event.senderFrame || !event.senderFrame.url.startsWith('file://')) {
-            return { ok: false, errore: { codice: 'non_autorizzato', messaggio: 'Richiesta non autorizzata' } };
-        }
-        if (!metodi.has(metodo)) {
-            return { ok: false, errore: { codice: 'metodo_sconosciuto', messaggio: `Metodo sconosciuto: ${metodo}` } };
-        }
-        try {
-            return { ok: true, dati: repository[metodo](...args) };
-        } catch (error) {
-            if (error instanceof ErroreValidazione) {
-                return { ok: false, errore: { codice: error.codice, messaggio: error.message, campo: error.campo } };
-            }
-            console.error(`Errore in ${metodo}:`, error);
-            return { ok: false, errore: { codice: 'interno', messaggio: error.message } };
-        }
-    });
-
+    // Canale unico per i dati: solo i metodi elencati in METODI_PUBBLICI (vedi ipc.js)
+    ipcMain.handle('db', creaGestoreDb(repository, METODI_PUBBLICI));
     // Dall'interfaccia (riquadro backup): l'esito lo mostra il renderer
-    ipcMain.handle('app:esportaBackup', async (event) => {
-        if (!event.senderFrame || !event.senderFrame.url.startsWith('file://')) {
-            return { ok: false, errore: { codice: 'non_autorizzato', messaggio: 'Richiesta non autorizzata' } };
-        }
-        try {
-            return { ok: true, dati: await esportaBackup() };
-        } catch (error) {
-            console.error('Esportazione backup non riuscita:', error);
-            return { ok: false, errore: { codice: 'interno', messaggio: error.message } };
-        }
-    });
+    ipcMain.handle('app:esportaBackup', creaGestoreAzione('esportaBackup', esportaBackup));
 }
 
 // Salva una copia del database dove sceglie l'utente (es. chiavetta).

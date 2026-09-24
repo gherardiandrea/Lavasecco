@@ -20,11 +20,29 @@ npm install
 npm start
 ```
 
-Test del livello dati (migrazione, regole su ordini/consegne/clienti/prodotti):
+## Test
 
 ```
-npm test
+npm test            # test unitari (circa 1 secondo)
+npm run test:e2e    # test end-to-end sull'app vera (circa 25 secondi)
+npm run test:tutti  # entrambi
 ```
+
+| Cosa | Dove | Come |
+|------|------|------|
+| Database e migrazioni, backup e pulizia dei backup vecchi | [test/database.test.js](test/database.test.js) | `node:test` su database temporanei |
+| Regole di business (ordini, consegne e "Annulla", clienti, listino, pagina "Oggi") | [test/repository.test.js](test/repository.test.js) | `node:test` |
+| Canale IPC (metodi ammessi, mittente, formato degli errori) | [test/ipc.test.js](test/ipc.test.js) | `node:test`, senza Electron |
+| Funzioni del renderer (escape dell'HTML, date, prezzi, celle delle tabelle, filtri) | [test/renderer.test.js](test/renderer.test.js) | gli script di `renderer/formato.js` e `renderer/celle.js` caricati in Node con l'orologio fissato |
+| Flussi dell'interfaccia (pagina "Oggi", nuovo ordine, consegne e "Annulla", modifica ed eliminazione, clienti, listino) | [test/e2e/](test/e2e/) | Playwright avvia l'app Electron su un database di prova in una cartella temporanea |
+
+I test end-to-end non toccano mai i dati reali: ogni file crea un database di prova
+(con date relative al giorno in cui si eseguono) e usa un profilo Electron separato.
+In caso di errore, screenshot e traccia finiscono in `test-results/`
+(`npx playwright show-trace test-results/<test>/trace.zip` per rivederla passo passo).
+
+Le funzioni di `renderer/formato.js` e `renderer/celle.js` non devono usare jQuery né il DOM,
+così restano testabili in Node.
 
 ## Dove sono i dati
 
@@ -102,9 +120,12 @@ vanno aperti prima con la versione 2.0.
 | [main.js](main.js) | Main process: finestra, IPC, menu, backup giornaliero |
 | [database.js](database.js) | Apertura DB, schema versionato, migrazioni, backup |
 | [repository.js](repository.js) | Operazioni e regole di business (validazioni, consegne) |
+| [ipc.js](ipc.js) | Gestori delle richieste dal renderer (metodi ammessi, controllo del mittente, errori) |
 | [preload.js](preload.js) | Ponte IPC minimale verso il renderer |
 | [app.config.js](app.config.js) | Percorsi dati e backup |
-| [renderer/base.js](renderer/base.js) | Stato, chiamate al main process, formattazione, messaggi (toast) |
+| [renderer/formato.js](renderer/formato.js) | Formattazione, date, escape dell'HTML (funzioni pure) |
+| [renderer/celle.js](renderer/celle.js) | HTML delle celle e delle righe, filtri rapidi (funzioni pure) |
+| [renderer/base.js](renderer/base.js) | Stato, chiamate al main process, messaggi (toast) |
 | [renderer/tabelle.js](renderer/tabelle.js) | Tabelle (DataTables) e aggiornamento delle singole righe |
 | [renderer/pagine.js](renderer/pagine.js) | Navigazione, pagina "Oggi", ricerca, backup, scorciatoie |
 | [renderer/modali.js](renderer/modali.js) | Ordine (nuovo/modifica), consegna, clienti, listino, conferme |

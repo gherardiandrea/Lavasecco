@@ -6,6 +6,27 @@ function modale(id) {
     return bootstrap.Modal.getOrCreateInstance(document.getElementById(id));
 }
 
+// Bootstrap ignora hide() mentre l'animazione di apertura è in corso: se si salva molto in fretta
+// (es. Invio appena aperta la modale) la modale resterebbe aperta. Chiudo appena l'apertura è finita.
+$(document).on('show.bs.modal', '.modal', function () { this.dataset.inApertura = '1'; });
+$(document).on('shown.bs.modal', '.modal', function () { delete this.dataset.inApertura; });
+
+// Stesso problema con Esc premuto durante l'apertura: la chiudo appena l'animazione è finita
+$(document).on('keydown', '.modal[data-in-apertura]', function (e) {
+    if (e.key === 'Escape') {
+        $(this).one('shown.bs.modal', () => bootstrap.Modal.getOrCreateInstance(this).hide());
+    }
+});
+
+function chiudiModale(id) {
+    const el = document.getElementById(id);
+    if (el.dataset.inApertura) {
+        $(el).one('shown.bs.modal', () => modale(id).hide());
+    } else {
+        modale(id).hide();
+    }
+}
+
 function nascondiErroreModale($modale) {
     $modale.find('.errore-modale').addClass('d-none').text('');
     $modale.find('.is-invalid').removeClass('is-invalid');
@@ -77,7 +98,7 @@ $(document).on('click', '#cf-conferma', () => {
     if (!azioneConferma) return;
     invia({ modale: '#modale-conferma', bottone: '#cf-conferma' }, async () => {
         await azioneConferma();
-        modale('modale-conferma').hide();
+        chiudiModale('modale-conferma');
     });
 });
 
@@ -335,10 +356,16 @@ $(document).on('mousedown', '#or-risultati .voce-cliente', function (e) {
 });
 
 // Uscendo dal campo l'elenco si chiude, a meno che il focus sia passato al mini-form "Nuovo cliente"
-$(document).on('blur', '#or-cliente-input', () => {
+// (All'apertura della modale Bootstrap sposta il focus per un istante: se il campo lo riprende l'elenco resta)
+$(document).on('blur', '#or-cliente-input', function () {
     setTimeout(() => {
-        if (!$('#or-risultati').find(':focus').length) $('#or-risultati').removeClass('aperti');
+        if (document.activeElement !== this && !$('#or-risultati').find(':focus').length) $('#or-risultati').removeClass('aperti');
     }, 150);
+});
+
+// Tornando sul campo con un testo già scritto, riappaiono i risultati
+$(document).on('focus', '#or-cliente-input', function () {
+    if (this.value.trim() && $('#or-risultati .voce-cliente').length) $('#or-risultati').addClass('aperti');
 });
 
 $(document).on('click', '#or-cliente-cambia', () => {
@@ -380,6 +407,8 @@ $(document).on('click', '#or-nuovo-crea', () => {
         const telefono = $('#or-nuovo-telefono').val().trim();
         const id = await api('salvaCliente', { nome, telefono });
         scegliCliente({ id, nome, telefono, ordini_aperti: 0 });
+        // Se dietro è aperta la pagina Clienti, il nuovo cliente compare subito in tabella
+        aggiornaRigaCliente({ id, nome, telefono, ordini_aperti: 0 });
         toast(`Cliente <b>${escapeHtml(nome)}</b> creato`);
         $('#or-capi .capo:first-child select').trigger('focus');
     });
@@ -441,7 +470,7 @@ async function registraOrdine() {
 
         if (formOrdine.modo === 'nuovo') {
             const ids = await api('creaOrdini', formOrdine.capi.map((c) => ({ ...comuni, prodotto_id: c.prodotto_id, quantita: c.quantita, descrizione: c.descrizione })));
-            modale('modale-ordine').hide();
+            chiudiModale('modale-ordine');
             const ordini = await Promise.all(ids.map((id) => api('getOrdine', id)));
             ordini.forEach(aggiornaRigaOrdine);
             const capi = formOrdine.capi.reduce((s, c) => s + Number(c.quantita), 0);
@@ -455,7 +484,7 @@ async function registraOrdine() {
                 descrizione: c.descrizione,
                 data_ritiro_effettiva: $('#or-data-ritiro-effettivo').val() || formOrdine.originale.data_ritiro_effettiva
             });
-            modale('modale-ordine').hide();
+            chiudiModale('modale-ordine');
             aggiornaRigaOrdine(ordine);
             toast(`Ordine <b>${numeroOrdine(ordine.id)}</b> aggiornato`);
         }
@@ -554,7 +583,7 @@ $(document).on('click', '#cons-conferma', () => {
             return;
         }
         await eseguiConsegna(consegnaInCorso.id, quantita);
-        modale('modale-consegna').hide();
+        chiudiModale('modale-consegna');
     });
 });
 
@@ -601,7 +630,7 @@ $(document).on('click', '[data-azione="elimina-ordine"]', function () {
 $(document).on('click', '#or-elimina', () => {
     const o = formOrdine.originale;
     $('#modale-ordine').one('hidden.bs.modal', () => confermaEliminaOrdine(o));
-    modale('modale-ordine').hide();
+    chiudiModale('modale-ordine');
 });
 
 // ── Clienti ─────────────────────────────────────────────────────────────────
@@ -631,7 +660,7 @@ $(document).on('click', '#cl-salva', () => {
         const nome = $('#cl-nome').val().trim();
         const telefono = $('#cl-telefono').val().trim();
         const id = await api('salvaCliente', { id: clienteInModifica ? clienteInModifica.id : null, nome, telefono });
-        modale('modale-cliente').hide();
+        chiudiModale('modale-cliente');
         aggiornaRigaCliente({ id, nome, telefono, ordini_aperti: clienteInModifica ? clienteInModifica.ordini_aperti : 0 });
         toast(`Cliente <b>${escapeHtml(nome)}</b> ${clienteInModifica ? 'aggiornato' : 'creato'}`);
     });
@@ -674,7 +703,7 @@ $(document).on('click', '#ar-salva', () => {
     invia({ modale: '#modale-articolo', bottone: '#ar-salva', campi: { descrizione: '#ar-descrizione' } }, async () => {
         const descrizione = $('#ar-descrizione').val().trim();
         await api('salvaProdotto', { id: articoloInModifica ? articoloInModifica.id : null, descrizione, prezzo: $('#ar-prezzo').val() });
-        modale('modale-articolo').hide();
+        chiudiModale('modale-articolo');
         await ricaricaListino();
         toast(`Articolo <b>${escapeHtml(descrizione)}</b> ${articoloInModifica ? 'aggiornato' : 'aggiunto al listino'}`);
     });

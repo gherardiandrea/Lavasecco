@@ -2,4 +2,8 @@ node_modules
 dist/
 out/
 
+# Risultati dei test end-to-end (Playwright)
+test-results/
+playwright-report/
+
 .claude/

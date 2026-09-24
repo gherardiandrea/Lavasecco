@@ -7,6 +7,8 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test \"test/**/*.test.js\"",
+    "test:e2e": "playwright test",
+    "test:tutti": "npm test && npm run test:e2e",
     "backup-db": "node scripts/backup-db.js",
     "package": "electron-forge package",
     "make": "electron-forge make"
@@ -30,6 +32,7 @@
     "@electron-forge/maker-rpm": "^7.11.2",
     "@electron-forge/maker-squirrel": "^7.11.2",
     "@electron-forge/maker-zip": "^7.11.2",
+    "@playwright/test": "^1.63.0",
     "electron": "^44.4.5"
   },
   "dependencies": {
